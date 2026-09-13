@@ -51,18 +51,18 @@ python -m venv .venv
 python -m pip install -e ".[test,strands]"
 ```
 
-Run the judge console:
+Run the final Strands-backed judge console:
 
 ```bash
-python scripts/demo_web.py --host 127.0.0.1 --port 8765
+python scripts/demo_web_strands.py --host 127.0.0.1 --port 8777
 ```
 
-Open `http://127.0.0.1:8765`.
+Open `http://127.0.0.1:8777`.
 
 The console demonstrates:
 
 1. **Observe** an operational incident.
-2. **Understand** and select a bounded FieldOps action.
+2. **Understand** and select a bounded FieldOps action through a real `strands.Agent` runtime.
 3. **Human Approval** for consequential execution.
 4. **Act** through the governed executor boundary.
 5. **Independent Verification** before success is accepted.
@@ -85,10 +85,14 @@ python scripts/demo_strands.py --scenario happy
 Final pre-submission verification on 2026-09-13:
 
 ```text
-python -m pytest -q                         19 passed, 1 skipped
-python -m compileall -q src scripts agentcore   PASS
-HTTP smoke /                               200
-HTTP smoke /api/status                     200
+python -m pytest -q                         22 passed
+python -m compileall -q src                 PASS
+Judge Console /                             PASS
+Judge Console /api/demo?scenario=happy      PASS
+Strands runtime                             active=true
+Bounded tool                                execute_fieldops_demo -> success
+Independent verification                    PASS
+Evidence Receipt quality gate               PASS
 ```
 
 ## Real-world evidence
@@ -107,7 +111,7 @@ The hackathon execution scenario uses a safe bounded camera-service fixture so a
 
 ## AWS / Strands truth boundary
 
-Strands Agents is genuinely integrated and tested. The repository also contains an optional Bedrock provider configuration path and AgentCore-oriented entrypoint.
+Strands Agents is genuinely integrated and tested. The final judge console is mediated by a real `strands.Agent` instance and bounded Strands tool. The repository also contains an optional Bedrock provider configuration path and AgentCore-oriented entrypoint.
 
 During final testing, the current AWS account returned:
 
@@ -115,7 +119,7 @@ During final testing, the current AWS account returned:
 ValidationException: Operation not allowed
 ```
 
-in the Bedrock Playground. We therefore **do not claim a successful live Bedrock inference** in this snapshot. The credential-free/local demo remains complete, while Bedrock stays an optional cloud route once the account/service eligibility restriction is resolved.
+in the Bedrock Playground. We therefore **do not claim a successful live Bedrock inference** in this snapshot unless a later bounded smoke test succeeds before submission. The credential-free/local Strands demo remains complete, while Bedrock stays an optional cloud route once the account/service eligibility restriction is resolved.
 
 AWS is a capability, not the owner of the product architecture. InnerOS retains the governed execution, local/private-network access, and verification boundary.
 
