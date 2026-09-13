@@ -1,4 +1,4 @@
-from scripts.demo_synthetic import run_demo
+from src.fieldops.demo_runner import run_demo
 from src.fieldops.providers import ProviderConfigError, load_provider_config
 
 

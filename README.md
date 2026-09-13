@@ -33,17 +33,37 @@ The repository now contains a provider-neutral Python core with:
 - mandatory post-action verification;
 - a safe synthetic Edge Node executor and independent verifier;
 - a runnable synthetic camera-gateway recovery scenario;
-- a Strands-shaped adapter boundary without requiring AWS credentials;
+- an actual optional Strands Agents SDK runtime that instantiates an Agent and
+  invokes bounded FieldOps tools directly;
+- an InnerOS read-only context adapter with an explicit no-mutation boundary;
+- an optional AWS Bedrock provider path with fail-closed configuration checks;
+- an AgentCore-oriented entrypoint/config example with no committed secrets;
+- a polished local demo web UI for hackathon review;
 - tests covering blocked approvals, successful verified execution, unknown targets and the Strands-facing boundary;
 - architecture, roadmap, pre-existing-code disclosure and Raspberry Pi Edge Node runbook.
 
-Run the synthetic demo after cloning:
+Install the local test/runtime dependencies:
+
+```bash
+python -m venv .venv
+. .venv/bin/activate
+python -m pip install -e ".[test,strands]"
+```
+
+Run the credential-free synthetic demo after cloning:
 
 ```bash
 python scripts/demo_synthetic.py
 python scripts/demo_synthetic.py --scenario denied
 python scripts/demo_synthetic.py --scenario failed-execution
 python scripts/demo_synthetic.py --scenario failed-verification
+python scripts/demo_strands.py --scenario happy
+```
+
+Run the local web demo:
+
+```bash
+python scripts/demo_web.py --host 127.0.0.1 --port 8765
 ```
 
 Run tests:
@@ -86,6 +106,12 @@ Audit Fabric / Evidence Receipt / HTR
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the complete design.
 
+Generate the diagram asset used by docs/UI:
+
+```bash
+python scripts/generate_architecture_asset.py
+```
+
 ## Raspberry Pi / Edge
 
 A Raspberry Pi can become `inneros-edge-01`: a permanent execution and verification node inside a private LAN. It can provide health probes, MQTT, GPIO/relay, serial/Modbus, camera/NVR checks and other bounded adapters without exposing customer devices directly to the Internet.
@@ -96,7 +122,7 @@ See [`docs/RASPBERRY_PI_RUNBOOK.md`](docs/RASPBERRY_PI_RUNBOOK.md).
 
 ## AWS / Strands
 
-Strands remains a valuable optional orchestration layer for AWS-facing deployments or future competitions. The reusable FieldOps core does not require AWS credentials and does not give a model unrestricted shell/network access.
+Strands is now integrated as an optional runtime. `src.fieldops.strands_runtime` builds a real `strands.Agent` and exposes only bounded FieldOps tools. The reusable FieldOps core does not require AWS credentials and does not give a model unrestricted shell/network access.
 
 See [`docs/STRANDS_ADAPTER.md`](docs/STRANDS_ADAPTER.md).
 
@@ -119,6 +145,15 @@ Future hackathon submissions must disclose reused components according to the ev
 ## Safety boundary
 
 No production customer systems are touched by the synthetic demo. Risky actions fail closed without explicit approval, and a successful command response is never treated as proof that the desired state exists.
+
+## Verification
+
+```bash
+python -m pytest -q
+python -m compileall -q src scripts agentcore
+python scripts/demo_synthetic.py --scenario happy
+python scripts/demo_strands.py --scenario happy
+```
 
 ## License
 

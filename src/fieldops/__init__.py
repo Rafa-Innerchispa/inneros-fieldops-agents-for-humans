@@ -8,6 +8,7 @@ from .contracts import (
     ExecutionResult,
     VerificationResult,
 )
+from .demo_runner import run_demo
 from .workflow import ApprovalDenied, ApprovalRequired, run_action
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "ApprovalDenied",
     "ApprovalRequired",
     "run_action",
+    "run_demo",
 ]

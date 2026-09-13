@@ -1,0 +1,20 @@
+{
+  "name": "inneros-fieldops",
+  "description": "Governed FieldOps Agent for AWS Agents for Humans style demos",
+  "entrypoint": "agentcore/fieldops_agent.py",
+  "runtime": "python3.12",
+  "environment": {
+    "FIELDOPS_MODEL_PROVIDER": "local",
+    "FIELDOPS_ROUTE": "local-edge",
+    "FIELDOPS_ROUTE_REASON": "privacy_and_device_locality",
+    "FIELDOPS_STRANDS_ENABLED": "1"
+  },
+  "secrets": [
+    {
+      "name": "AWS credentials or role",
+      "required_for": "bedrock live provider only",
+      "committed": false
+    }
+  ],
+  "safety": "No arbitrary shell, no arbitrary network, approval-gated actions only."
+}
