@@ -1,0 +1,73 @@
+{
+  "task_id": "ops_e7058e0ff56d",
+  "correlation_id": "inneros-pi01-solar-ha-20260912",
+  "result": "PARTIAL_READY_WITH_DRIVER_BLOCKER",
+  "timestamp_utc": "2026-09-13T04:39:57Z",
+  "node": {
+    "id": "inneros-pi01",
+    "hostname": "InnerOs-Pi01",
+    "ip": "192.168.1.97",
+    "control_host": "192.168.1.4",
+    "ssh_user": "rlopez",
+    "ssh_passwordless_from_control_host": true
+  },
+  "system": {
+    "os_pretty_name": "Debian GNU/Linux 13 (trixie)",
+    "kernel": "6.18.34+rpt-rpi-v8",
+    "architecture": "aarch64",
+    "root_filesystem": "/dev/mmcblk0p2 ext4",
+    "root_free_space_observed": "223G",
+    "ethernet": "192.168.1.97/24",
+    "wlan0": "down"
+  },
+  "usb": {
+    "vid_pid": "0665:5161",
+    "vendor_database": "Cypress Semiconductor",
+    "product_database": "USB to Serial",
+    "kernel_interface": "USB HID via usbfs (/dev/bus/usb/001/004); no tty device",
+    "tty_devices_observed": [],
+    "dmesg_summary": "hid-generic announced hiddev/hidraw during boot; current /dev view exposes the device through usbfs only",
+    "current_device_nodes": [
+      "/dev/bus/usb/001/004"
+    ],
+    "hidraw_nodes_observed_currently": []
+  },
+  "nut": {
+    "packages_installed": [
+      "nut",
+      "nut-server",
+      "nut-client"
+    ],
+    "mode": "netserver",
+    "ups_name": "inneros_solar",
+    "driver": "nutdrv_qx",
+    "server_active": true,
+    "driver_active": false,
+    "listen": [
+      "127.0.0.1:3493",
+      "192.168.1.97:3493"
+    ],
+    "read_command": "upsc inneros_solar@localhost",
+    "read_result": "Error: Driver not connected",
+    "udev_rule": "/etc/udev/rules.d/60-inneros-solar-nut.rules",
+    "config_backup": "/etc/nut/inneros-backup-20260913T043137Z"
+  },
+  "home_assistant": {
+    "bridge_host": "192.168.1.4",
+    "entity_id": "sensor.inneros_pi01_solar_usb_status",
+    "state": "driver_not_connected",
+    "published": true,
+    "transport": "existing InnerOS Home Assistant API bridge",
+    "mqtt_available_on_1883": false
+  },
+  "safety": {
+    "inverter_or_controller_write_commands_sent": false,
+    "nut_write_user_configured": false,
+    "public_exposure_added": false,
+    "destructive_commands_sent": false
+  },
+  "blockers": [
+    "Exact inverter/controller protocol is not yet identified from hardware evidence.",
+    "NUT nutdrv_qx did not connect to the detected 0665:5161 HID device, so real telemetry variables are not available yet."
+  ]
+}
