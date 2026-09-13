@@ -1,0 +1,61 @@
+{
+  "result": "LIVE_CAPTURED",
+  "timestamp_utc": "2026-09-13T13:07:00Z",
+  "source": "Home Assistant UniFi redacted diagnostics",
+  "safety": {
+    "read_only": true,
+    "credentials_included": false,
+    "network_mutations_performed": false
+  },
+  "facilities": {
+    "wifi_24_clients_total": 37,
+    "wifi_5_clients": 10,
+    "alarm_intelbras_presence": "online",
+    "access_points": [
+      {
+        "name": "Estudio",
+        "state": "RUN",
+        "radio_24_channel": 6,
+        "radio_24_width_mhz": 20,
+        "radio_24_utilization_percent": 19,
+        "radio_24_clients": 14,
+        "radio_5_channel": 36,
+        "radio_5_clients": 2
+      },
+      {
+        "name": "Cuarto",
+        "state": "RUN",
+        "uplink_mbps": 1000,
+        "radio_24_channel": 1,
+        "radio_24_width_mhz": 20,
+        "radio_24_utilization_percent": 40,
+        "radio_24_clients": 0,
+        "radio_5_channel": 149,
+        "radio_5_clients": 0,
+        "finding": "AP is physically online but currently serving no clients"
+      },
+      {
+        "name": "U7 Living",
+        "state": "RUN",
+        "radio_24_channel": 11,
+        "radio_24_width_mhz": 20,
+        "radio_24_utilization_percent": 84,
+        "radio_24_clients": 23,
+        "radio_5_channel": 48,
+        "radio_5_width_mhz": 80,
+        "radio_5_clients": 8,
+        "memory_percent": 81
+      }
+    ],
+    "high_retry_client": {
+      "name": "Camera Cuarto IMOU",
+      "band": "2.4GHz",
+      "channel": 11,
+      "signal_dbm": -59,
+      "tx_retries": 1045586,
+      "wifi_tx_attempts": 3662664,
+      "retry_ratio_percent": 28.55,
+      "finding": "Camera remains associated to the congested Living AP instead of the nearby Cuarto AP"
+    }
+  }
+}
