@@ -20,8 +20,8 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 DEFAULT_COORDINATION_ROOTS = (
-    "/home/rlopez/inneros/inneros_core/HUB",
-    "/home/rlopez/inneros/inneros_core/runtime",
+    "/home/rlopez/data/ai_coordination/HUB",
+    "/home/rlopez/inneros/inneros_core/platform",
 )
 
 SOLAR_ENTITIES = {
