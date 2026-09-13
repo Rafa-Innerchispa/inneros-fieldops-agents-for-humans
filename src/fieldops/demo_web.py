@@ -119,6 +119,10 @@ def render_demo_page(scenario: str = "happy") -> str:
     .score{{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}} .metric{{background:#08121c;border:1px solid var(--line);border-radius:12px;padding:13px}}
     .metric strong{{display:block;font-size:24px}} .metric span{{font-size:12px;color:var(--muted)}}
     .systems{{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:16px 0}}
+    .capability-heading{{display:flex;justify-content:space-between;align-items:end;gap:18px;margin:22px 0 10px}}
+    .capability-heading h2{{margin:4px 0 0}} .capability-heading p{{margin:0;max-width:720px;text-align:right;color:var(--muted);font-size:13px}}
+    .capabilities{{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin:0 0 16px}}
+    .capability-card .system-title{{margin-bottom:9px}} .capability-card .kv strong{{text-align:right}}
     .system-card{{position:relative;overflow:hidden}} .system-card::after{{content:"";position:absolute;inset:auto -40px -80px auto;width:160px;height:160px;border-radius:50%;background:rgba(66,215,255,.07)}}
     .system-title{{display:flex;align-items:center;justify-content:space-between;margin-bottom:13px}} .system-title h3{{font-size:17px}}
     .kv{{display:grid;grid-template-columns:1fr auto;gap:8px 14px;font-size:13px;padding:7px 0;border-bottom:1px solid rgba(32,50,70,.65)}} .kv:last-child{{border-bottom:0}} .kv span{{color:var(--muted)}}
@@ -201,6 +205,32 @@ def render_demo_page(scenario: str = "happy") -> str:
       <div class="kv"><span>Hot AP</span><strong>{escape(hot_name)}</strong></div>
       <div class="kv"><span>2.4 utilization</span><strong class="state-warn">{escape(_value(hot_util, '%'))}</strong></div>
       <div class="kv"><span>Problem client</span><strong>{escape(str(high_retry.get('name', 'none')))}</strong></div>
+    </article>
+  </section>
+
+  <div class="capability-heading">
+    <div>
+      <div class="eyebrow">Connected Physical Capabilities</div>
+      <h2>One governed boundary, more than one kind of hardware</h2>
+    </div>
+    <p>Verified InnerOS integrations are shown as supporting evidence rather than extra judge workflows, keeping the end-to-end story focused.</p>
+  </div>
+  <section class="capabilities">
+    <article class="panel capability-card">
+      <div class="system-title"><h3>Lighting / DMX</h3><span class="badge live">VERIFIED REAL</span></div>
+      <div class="kv"><span>Runtime</span><strong>InnerOS AG-59</strong></div>
+      <div class="kv"><span>Transport</span><strong>Art-Net / DMX</strong></div>
+      <div class="kv"><span>Control surface</span><strong>Allowlisted scenes only</strong></div>
+      <div class="kv"><span>Safety</span><strong>No raw channels from the agent</strong></div>
+      <div class="kv"><span>Hardware proof</span><strong class="state-good">Scene + blackout verified</strong></div>
+    </article>
+    <article class="panel capability-card">
+      <div class="system-title"><h3>Telephony / VoiceOps</h3><span class="badge captured">READ-ONLY VERIFIED</span></div>
+      <div class="kv"><span>PBX</span><strong>Grandstream UCM6104</strong></div>
+      <div class="kv"><span>Control planes</span><strong>SIP + AMI + CGI adapters</strong></div>
+      <div class="kv"><span>Network proof</span><strong class="state-good">PBX services reachable</strong></div>
+      <div class="kv"><span>Remote path</span><strong>Private tunnel architecture</strong></div>
+      <div class="kv"><span>Outbound calls</span><strong class="state-warn">LOCKED pending route verification</strong></div>
     </article>
   </section>
 
