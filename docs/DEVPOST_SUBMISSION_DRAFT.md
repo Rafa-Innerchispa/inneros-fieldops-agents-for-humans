@@ -1,153 +1,204 @@
-# Devpost Submission Draft — Agents for Humans
+# Devpost Submission Draft — AWS Agents for Humans
 
 ## Project name
 InnerOS FieldOps
 
+## Elevator pitch
+AI agents that safely turn real-world needs into action, with human approval, physical execution, independent verification, and auditable evidence.
+
 ## Tagline
-The AI operations agent that does the work, verifies the outcome, and only interrupts a human when judgment is actually required.
+**The AI agent that doesn't just answer. It runs the operation.**
 
 ## Track
 Professional Agents
 
 ## Who it is for
-Small and mid-sized field-service and technical operations teams: security integrators, managed IT providers, maintenance companies, facilities teams, network installers, building technology operators and other service businesses where work crosses software, people and physical infrastructure.
+Small and mid-sized field-service and technical operations teams: security integrators, managed IT providers, maintenance companies, facilities teams, network installers, building-technology operators, and other service businesses where work crosses software, people, and physical infrastructure.
 
 ## Problem
-Operational work is fragmented across tickets, WhatsApp, email, dashboards, device interfaces, technician messages and manual follow-up. The owner or operations manager becomes the glue between systems.
+Operational work is fragmented across messages, dashboards, device interfaces, technicians, and manual follow-up. The owner or operations manager becomes the glue between systems.
 
-Most AI assistants stop at advice. They can say what should happen, but a human still has to open tools, execute actions, check whether they worked, capture evidence and decide what to do next.
+Most AI assistants stop at advice. They can say what should happen, but a human still has to open tools, execute actions, check whether they worked, preserve evidence, and decide what happens next.
 
 ## Solution
 InnerOS FieldOps turns an operational objective into governed execution.
 
-A coordinating agent built with Strands Agents can:
+A Strands-based coordinating agent can:
 
 1. understand an incident or request;
-2. gather context through InnerOS/MCP tools;
-3. decide where work should run using policy-aware routing;
-4. request human approval only when policy requires it;
-5. execute through a bounded executor;
+2. gather operational context;
+3. choose a bounded FieldOps action;
+4. request human approval when policy requires it;
+5. execute through an allowlisted executor boundary;
 6. independently verify the resulting state;
 7. generate an Evidence Receipt;
-8. notify the human only if intervention or judgment is genuinely needed.
+8. close the incident or escalate only when human judgment is actually needed.
 
 The core design principle is simple:
 
-**A command returning success does not mean the problem is solved. The resulting state must be verified.**
+**A command returning success does not mean the problem is solved. The resulting state must be independently verified.**
 
 ## Why it matters
-For field-service companies, the hidden cost is coordination. A simple incident may require opening several systems, chasing a technician, checking a device, documenting what happened and updating the customer.
+Field-service companies lose enormous amounts of human time to coordination rather than to the technical work itself. A simple incident can mean opening several systems, checking infrastructure, contacting someone, documenting the result, and updating the customer.
 
-FieldOps moves repetitive coordination to the agent while preserving human authority over sensitive actions.
+FieldOps moves repetitive coordination to the agent while preserving human authority over consequential actions.
 
-InnerOS already measures Human Time Returned on operational workflows. One internal workflow previously measured approximately 120 human minutes baseline versus approximately 10 assisted human minutes. This is internal evidence from a specific workflow, not a universal performance claim.
+InnerOS has historical internal evidence of a specific workflow moving from approximately 120 human minutes to approximately 10 assisted human minutes. This is context from one measured/internal workflow, not a universal performance claim.
 
 ## What makes it different
 
-- Executes real work instead of only recommending actions.
-- Verifies post-action state independently.
-- Keeps high-impact actions behind explicit human approval.
-- Supports local-first / cloud-hybrid routing.
-- Can execute inside private networks through an InnerOS Edge Node such as a Raspberry Pi or mini-PC.
-- Produces evidence instead of asking users to trust an opaque autonomous action.
-- Connects business operations and physical infrastructure through one governed execution model.
+- It is designed to execute governed real-world work rather than only recommend actions.
+- It requires post-action verification before accepting success.
+- High-impact actions remain behind explicit human approval.
+- It combines cloud-compatible agent orchestration with sovereign/local execution.
+- It can operate inside private networks through InnerOS Edge Nodes such as Raspberry Pi or mini-PC systems.
+- It produces Evidence Receipts instead of asking users to trust opaque autonomous actions.
+- One governed execution model spans security, energy, facilities, networking, and other operational domains.
+- Real integrations and synthetic demo fixtures are explicitly labeled rather than blended together.
 
 ## Architecture
 
 ```text
-Incident / Goal
-      |
-      v
-Strands Agent
-      |
-      v
-InnerOS / Ralphi IA
-      |
-      +--> Resource Fabric (local/cloud routing)
-      +--> MCP context/tools
-      +--> Human Approval Gate
-      |
-      v
-FieldOps Executor
-      |
-      +--> Software APIs
-      +--> InnerOS Edge Node
-      +--> Physical Guardian / local devices
-      +--> Human field technician
-      |
-      v
-Independent Verification
-      |
-      v
-Evidence Receipt / Audit Fabric
-      |
-      v
-Resolved silently OR human escalation
+Human / Incident / Alert
+          |
+          v
+     Strands Agent
+          |
+          v
+ InnerOS / FieldOps
+ context + policy + routing
+          |
+          +--> Human Approval Gate
+          |
+          v
+   Governed Executor
+          |
+          +--> software/API
+          +--> Edge Node
+          +--> physical infrastructure
+          |
+          v
+ Independent Verifier
+          |
+          v
+    Evidence Receipt
+          |
+          v
+ closeout or human escalation
 ```
 
-## AWS usage
+## What the demo shows
 
-FieldOps is provider-neutral at its execution boundary. For the AWS build:
+### 1. Security Agent
+A camera-service incident enters FieldOps. The agent proposes a bounded remediation. The action cannot execute until the human approves it. After execution, a separate verifier checks the resulting state. An Evidence Receipt records correlation ID, route, action, executor, verifier, and quality gate.
 
-- Strands Agents provides the agent orchestration layer.
-- Amazon Bedrock is the cloud model provider when policy permits.
-- Amazon Bedrock AgentCore is an optional deployment target that can strengthen the Technical Implementation score.
-- AWS does not replace InnerOS. It provides cloud intelligence/orchestration while InnerOS maintains governed execution and local/private-network access.
+The execution fixture is deliberately safe and credential-free so judges can reproduce the governance loop without touching a production camera system.
 
-## Demo scenario
+### 2. Energy Agent — real physical evidence
+A Raspberry Pi InnerOS Edge Node is physically connected to an **Xmart XSI-BB-120-3K-24-MPP** inverter. The system identified the PI30 protocol and reads real telemetry using read-only `QPI`/`QPIGS` queries.
 
-A camera gateway is reported unhealthy.
+The submission includes captured real evidence for output power, battery voltage/capacity, load, grid voltage, temperature, and PV state. When authorized local Home Assistant credentials are configured server-side, the judge console can refresh allowlisted local telemetry without exposing credentials to the browser.
 
-1. The Strands agent receives the incident.
-2. It retrieves site/device context.
-3. Policy determines the remediation is allowed only with explicit approval.
-4. Human approves the restart.
-5. FieldOps executes the restart through the edge executor.
-6. A separate verifier probes the service state.
-7. The system produces an Evidence Receipt showing route, policy, approval, executor, action result and verification.
-8. The human receives `Resolved autonomously. No further action required.`
+### 3. Facility / Network Agent — real UniFi evidence
+The submission includes sanitized real RF/network evidence from the local UniFi installation through Home Assistant diagnostics: AP state, channels, utilization, client distribution, and retry behavior. This demonstrates the same FieldOps model applied to infrastructure rather than to a single camera workflow.
 
-A second demo branch shows that pending/rejected approval prevents execution entirely.
+An Intelbras alarm is also discovered as an online real device. We do **not** claim alarm control in this submission because its exact panel protocol/model integration is still being validated.
+
+## Judge console
+The local no-dependency judge console exposes:
+
+- Security, Energy, and Facility/Network operational cards;
+- Judge Mode with approve/deny/failed-verification paths;
+- the full observe → understand → approve → act → verify pipeline;
+- Evidence Receipts;
+- real-versus-captured evidence labels;
+- read-only operations status refresh;
+- technical trace and architecture surfaces.
+
+Run it with:
+
+```bash
+python scripts/demo_web.py --host 127.0.0.1 --port 8765
+```
+
+## AWS / Strands usage
+
+### Verified
+- Real Strands Agents SDK integration.
+- `strands.Agent` instantiation.
+- Bounded FieldOps tools exposed through the Strands runtime.
+- AgentCore-oriented entrypoint/config example.
+- Optional Bedrock provider configuration path.
+
+### Current AWS account limitation
+During final testing the Bedrock Playground returned:
+
+```text
+ValidationException: Operation not allowed
+```
+
+We therefore do **not** claim a successful live Bedrock model invocation in this submission snapshot. FieldOps remains fully demonstrable through the verified Strands/local execution path, and Bedrock remains an optional cloud route once the account/service eligibility restriction is resolved.
+
+This design is intentional: AWS provides cloud-compatible orchestration/model capability, while InnerOS preserves the governed local/private-network execution and verification boundary.
 
 ## Pre-existing technology disclosure
+This project builds on pre-existing InnerOS technologies including Ralphi IA/MCP, local-model infrastructure, Resource Fabric, Home Assistant/edge integrations, Physical Guardian concepts, approval primitives, and audit/evidence foundations.
 
-This project builds on pre-existing InnerOS technologies, including Ralphi IA, MCP integrations, local inference infrastructure, Resource Fabric, Physical Guardian concepts, human approval primitives and audit/evidence foundations.
-
-Hackathon-specific work includes the Strands-facing orchestration layer, FieldOps workflow, AWS integration, demo, documentation and competition-specific presentation.
+Hackathon-specific work includes the FieldOps workflow/product layer, Strands-facing orchestration, bounded demo execution, AWS configuration path, judge console, evidence presentation, and competition-specific documentation/integration.
 
 See `docs/PREEXISTING_DISCLOSURE.md` for details.
 
 ## Built with
-
 - Strands Agents SDK
-- Amazon Bedrock
-- Amazon Bedrock AgentCore (optional deployment)
 - Python
 - InnerOS
-- MCP
-- Resource Fabric
-- local AMD/vLLM inference
-- Raspberry Pi / edge execution architecture
-- InnerOS Audit Fabric / Evidence Receipts
+- MCP / operational integrations
+- Raspberry Pi / InnerOS Edge Node
+- Home Assistant
+- UniFi
+- local AMD/vLLM infrastructure
+- optional Amazon Bedrock provider path
+- AgentCore-oriented entrypoint
+
+## Verification
+Final pre-submission verification:
+
+```text
+python -m pytest -q                         19 passed, 1 skipped
+python -m compileall -q src scripts agentcore   PASS
+Judge console HTTP /                       200
+Judge console HTTP /api/status             200
+```
 
 ## Public repository
-
 https://github.com/Rafa-Innerchispa/inneros-fieldops-agents-for-humans
 
+## Devpost fields
+- Project name: **InnerOS FieldOps**
+- Track: **Professional Agents**
+- AWS Builder ID: **@ralphi**
+- Repository: `https://github.com/Rafa-Innerchispa/inneros-fieldops-agents-for-humans`
+- Country of residence: **Ecuador**
+
+## Testing instructions
+Run the local credential-free demo to explore the complete governed workflow: request → AI analysis → human approval → bounded execution → independent verification → Evidence Receipt. The repository README includes setup and testing instructions. The judge console also exposes real captured Energy and UniFi operational evidence. AWS/Bedrock remains optional because the current account returned `ValidationException: Operation not allowed` during final testing.
+
 ## Submission checklist
-
-Required by Devpost:
-
-- [ ] Working Strands Agents implementation
+- [x] Working Strands Agents implementation
 - [x] Public repository
 - [x] MIT license
-- [x] README
-- [ ] Final architecture diagram image/PDF upload
-- [ ] Demo video, maximum 5 minutes
-- [ ] AWS Builder ID
-- [ ] Devpost project created
-- [ ] Professional Agents track selected
-- [ ] Country of residence: Ecuador
-- [ ] Test instructions finalized
-- [ ] Optional live demo
-- [ ] Optional builder.aws.com post
+- [x] README and testing instructions
+- [x] Professional Agents track selected
+- [x] AWS Builder ID: @ralphi
+- [x] Devpost project created
+- [x] Architecture asset exists in repository
+- [x] Final Judge Console implemented and tested
+- [x] Real solar evidence included
+- [x] Real UniFi evidence included
+- [ ] Upload final architecture/gallery media to Devpost
+- [ ] Record/upload public YouTube or Vimeo demo video (maximum 5 minutes)
+- [ ] Final Devpost review and Submit
+- [ ] Optional builder.aws.com bonus post
+
+## Repository lifecycle
+This repository becomes a frozen hackathon snapshot after final submission. Reusable capabilities continue in the living InnerOS FieldOps product line; new product development must not continue by mutating the submitted competition snapshot.

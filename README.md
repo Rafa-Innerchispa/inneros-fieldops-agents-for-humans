@@ -2,9 +2,7 @@
 
 **Cloud intelligence. Sovereign execution. Verified outcomes.**
 
-InnerOS FieldOps is a reusable governed execution layer for AI agents that need to do real operational work across software, field-service workflows and physical infrastructure.
-
-It originated while evaluating the AWS **Agents for Humans** hackathon. The project is intentionally preserved beyond that event as reusable InnerOS R&D rather than being discarded or frozen as a one-off submission.
+InnerOS FieldOps is an AI operations agent for the physical world, built for the AWS **Agents for Humans** hackathon. It turns an operational objective into a governed workflow that can request human approval, execute a bounded action, independently verify the result, and return an auditable Evidence Receipt.
 
 ## Thesis
 
@@ -13,36 +11,39 @@ Most agents stop at recommendations. FieldOps closes the loop:
 ```text
 objective / incident
   -> context
-  -> reasoning
+  -> agent decision
   -> bounded action proposal
-  -> policy + human approval when required
+  -> human approval when required
   -> execution
   -> independent verification
   -> evidence receipt
-  -> closeout or escalation
 ```
 
 The human should be interrupted for judgment, not routine coordination.
 
-## Current implementation
+## What is implemented
 
-The repository now contains a provider-neutral Python core with:
+The hackathon snapshot contains:
 
-- action, approval, execution, verification and evidence contracts;
-- fail-closed approval handling for risky actions;
-- mandatory post-action verification;
-- a safe synthetic Edge Node executor and independent verifier;
-- a runnable synthetic camera-gateway recovery scenario;
-- an actual optional Strands Agents SDK runtime that instantiates an Agent and
-  invokes bounded FieldOps tools directly;
-- an InnerOS read-only context adapter with an explicit no-mutation boundary;
-- an optional AWS Bedrock provider path with fail-closed configuration checks;
-- an AgentCore-oriented entrypoint/config example with no committed secrets;
-- a polished local demo web UI for hackathon review;
-- tests covering blocked approvals, successful verified execution, unknown targets and the Strands-facing boundary;
-- architecture, roadmap, pre-existing-code disclosure and Raspberry Pi Edge Node runbook.
+- an actual Strands Agents SDK runtime that instantiates a `strands.Agent` and exposes bounded FieldOps tools;
+- provider-neutral action, approval, execution, verification, and evidence contracts;
+- fail-closed approval handling for consequential actions;
+- independent post-action verification;
+- Evidence Receipts with correlation, route, action, executor, verifier, and quality gate;
+- an AgentCore-oriented entrypoint/config example without committed secrets;
+- a judge-facing web console with Security, Energy, and Facility/Network views;
+- real Xmart solar evidence from an InnerOS Raspberry Pi Edge Node using read-only PI30 `QPI`/`QPIGS` queries;
+- real UniFi RF evidence from the local Home Assistant/UniFi integration;
+- an allowlisted read-only Home Assistant adapter that can show live local telemetry when server-side credentials are configured;
+- explicit `LIVE REAL` vs `CAPTURED REAL` labeling so recorded evidence is never presented as live telemetry;
+- credential-free synthetic execution fixtures for approval, execution-failure, and verification-failure paths;
+- architecture, pre-existing-code disclosure, and edge-node documentation.
 
-Install the local test/runtime dependencies:
+The Intelbras alarm is currently discovered as a real online network device. This snapshot **does not claim alarm control** because its panel protocol/model integration has not yet been proven.
+
+## Run the demo
+
+Create the environment:
 
 ```bash
 python -m venv .venv
@@ -50,7 +51,26 @@ python -m venv .venv
 python -m pip install -e ".[test,strands]"
 ```
 
-Run the credential-free synthetic demo after cloning:
+Run the judge console:
+
+```bash
+python scripts/demo_web.py --host 127.0.0.1 --port 8765
+```
+
+Open `http://127.0.0.1:8765`.
+
+The console demonstrates:
+
+1. **Observe** an operational incident.
+2. **Understand** and select a bounded FieldOps action.
+3. **Human Approval** for consequential execution.
+4. **Act** through the governed executor boundary.
+5. **Independent Verification** before success is accepted.
+6. **Evidence Receipt** proving what happened.
+
+It also shows the real Energy and Facility/Network evidence included with this submission. When authorized local Home Assistant credentials are supplied server-side, `/api/status` can refresh allowlisted local telemetry without exposing those credentials to the browser.
+
+Run credential-free scenarios directly:
 
 ```bash
 python scripts/demo_synthetic.py
@@ -60,100 +80,96 @@ python scripts/demo_synthetic.py --scenario failed-verification
 python scripts/demo_strands.py --scenario happy
 ```
 
-Run the local web demo:
+## Verification
 
-```bash
-python scripts/demo_web.py --host 127.0.0.1 --port 8765
+Final pre-submission verification on 2026-09-13:
+
+```text
+python -m pytest -q                         19 passed, 1 skipped
+python -m compileall -q src scripts agentcore   PASS
+HTTP smoke /                               200
+HTTP smoke /api/status                     200
 ```
 
-Run tests:
+## Real-world evidence
 
-```bash
-python -m pytest
+### Energy Agent
+
+The InnerOS Edge Node reads an **Xmart XSI-BB-120-3K-24-MPP** inverter over USB using the PI30 protocol. Only read-only `QPI`/`QPIGS` queries are used. A captured real sample in `docs/evidence/inneros_pi01_xmart_live_telemetry_20260913.json` includes output power, battery voltage/capacity, load, grid voltage, temperature, and PV values.
+
+### Facility / Network Agent
+
+`docs/evidence/unifi_rf_snapshot_20260913.json` contains sanitized real UniFi RF evidence captured through Home Assistant diagnostics. It includes AP/channel/utilization/client information and a real camera retry-rate problem. No Wi-Fi credentials are stored and no RF settings are changed by the demo.
+
+### Security Agent
+
+The hackathon execution scenario uses a safe bounded camera-service fixture so approval, execution, and independent verification can be demonstrated without risking a production camera system. Existing InnerOS/Physical Guardian capabilities are disclosed as pre-existing technology rather than presented as new hackathon code.
+
+## AWS / Strands truth boundary
+
+Strands Agents is genuinely integrated and tested. The repository also contains an optional Bedrock provider configuration path and AgentCore-oriented entrypoint.
+
+During final testing, the current AWS account returned:
+
+```text
+ValidationException: Operation not allowed
 ```
 
-Optional provider metadata is configured through environment variables; see [`.env.example`](.env.example). The local demo is credential-free. Bedrock/Strands remains optional and fails closed until `FIELDOPS_BEDROCK_MODEL_ID`, AWS region and owner-approved credentials are supplied.
+in the Bedrock Playground. We therefore **do not claim a successful live Bedrock inference** in this snapshot. The credential-free/local demo remains complete, while Bedrock stays an optional cloud route once the account/service eligibility restriction is resolved.
+
+AWS is a capability, not the owner of the product architecture. InnerOS retains the governed execution, local/private-network access, and verification boundary.
 
 ## Architecture
 
 ```text
-Agent / Event
-    |
-    v
-Strands or other orchestrator
-    |
-    v
-InnerOS / Ralphi IA
-    |
-    +--> Resource Fabric / model routing
-    +--> MCP / operational context
-    +--> Human Approval Gate
-    |
-    v
-FieldOps governed execution boundary
-    |
-    +--> software/API executor
-    +--> InnerOS Edge Node (Raspberry Pi / mini-PC)
-    +--> Physical Guardian
-    +--> human field technician
-    |
-    v
-Independent verification
-    |
-    v
-Audit Fabric / Evidence Receipt / HTR
+Human / Event / Alert
+        |
+        v
+   Strands Agent
+        |
+        v
+InnerOS / FieldOps policy + context
+        |
+        +--> Human Approval Gate
+        +--> Local / cloud routing
+        |
+        v
+Governed Executor
+        |
+        +--> software/API
+        +--> InnerOS Edge Node
+        +--> physical infrastructure
+        |
+        v
+Independent Verifier
+        |
+        v
+Evidence Receipt
 ```
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the complete design.
+See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and [`docs/assets/fieldops-architecture.svg`](docs/assets/fieldops-architecture.svg).
 
-Generate the diagram asset used by docs/UI:
+## Pre-existing technology disclosure
 
-```bash
-python scripts/generate_architecture_asset.py
-```
+InnerOS, Ralphi IA/MCP, local-model infrastructure, Resource Fabric, Home Assistant integrations, Physical Guardian concepts, approval/audit foundations, and other operational infrastructure predate this hackathon.
 
-## Raspberry Pi / Edge
+Hackathon-specific work includes the FieldOps product/workflow layer, Strands-facing orchestration, bounded demo execution, judge console, evidence presentation, AWS configuration path, documentation, and competition-specific integration work.
 
-A Raspberry Pi can become `inneros-edge-01`: a permanent execution and verification node inside a private LAN. It can provide health probes, MQTT, GPIO/relay, serial/Modbus, camera/NVR checks and other bounded adapters without exposing customer devices directly to the Internet.
+See [`docs/PREEXISTING_DISCLOSURE.md`](docs/PREEXISTING_DISCLOSURE.md).
 
-The Raspberry Pi is not intended to run the primary large language model. Reasoning stays in the registered InnerOS local/cloud runtime; the edge node provides physical presence.
+## Safety
 
-See [`docs/RASPBERRY_PI_RUNBOOK.md`](docs/RASPBERRY_PI_RUNBOOK.md).
+- No secrets are committed.
+- No arbitrary model shell or arbitrary public network execution is exposed.
+- Consequential actions fail closed without approval.
+- A command response is never accepted as proof of success without verification.
+- Solar access is read-only.
+- UniFi RF data is read-only in this snapshot.
+- Real and synthetic/captured evidence are explicitly labeled.
 
-## AWS / Strands
+## Submission snapshot lifecycle
 
-Strands is now integrated as an optional runtime. `src.fieldops.strands_runtime` builds a real `strands.Agent` and exposes only bounded FieldOps tools. The reusable FieldOps core does not require AWS credentials and does not give a model unrestricted shell/network access.
-
-See [`docs/STRANDS_ADAPTER.md`](docs/STRANDS_ADAPTER.md).
-
-## Pre-existing InnerOS capabilities
-
-FieldOps is designed to consume, not duplicate:
-
-- InnerOS / Ralphi IA
-- MCP tools/connectors
-- Resource Fabric
-- local AMD inference
-- Physical Guardian
-- InnerOps Service Operations / Workforce / QuoteOps where relevant
-- approval primitives
-- Audit Fabric / Decision Evidence / Forensic Replay
-- Human Time Returned telemetry
-
-Future hackathon submissions must disclose reused components according to the event rules.
-
-## Safety boundary
-
-No production customer systems are touched by the synthetic demo. Risky actions fail closed without explicit approval, and a successful command response is never treated as proof that the desired state exists.
-
-## Verification
-
-```bash
-python -m pytest -q
-python -m compileall -q src scripts agentcore
-python scripts/demo_synthetic.py --scenario happy
-python scripts/demo_strands.py --scenario happy
-```
+This repository is the reproducible **hackathon submission snapshot**. After final Devpost submission, the exact submitted SHA will be tagged and this repository will be frozen for feature development. Reusable FieldOps capabilities continue in the living InnerOS product line rather than mutating the competition snapshot.
 
 ## License
 
