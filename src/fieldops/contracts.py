@@ -60,11 +60,17 @@ class EvidenceReceipt:
     route: str
     route_reason: str
     policy_version: str
+    requested_action: str
+    target_ref: str
     executor: str
+    verifier: str
     action_success: bool
     verification_passed: bool
+    quality_gate: str
     approval_ref: str | None = None
     evidence_refs: tuple[str, ...] = ()
+    execution_details: Mapping[str, Any] = field(default_factory=dict)
+    observed_state: Mapping[str, Any] = field(default_factory=dict)
 
 
 class Executor(Protocol):
