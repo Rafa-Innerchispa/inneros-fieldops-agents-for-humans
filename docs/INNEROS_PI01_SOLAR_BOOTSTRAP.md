@@ -22,7 +22,7 @@ This work is infrastructure bootstrap only. It does not modify inverter, charge-
 - Kernel and udev evidence identify it as a USB HID-class device available through `/dev/bus/usb/001/004`, not a `/dev/ttyUSB*` serial adapter. A hidraw node was announced in early dmesg but is not present in the current `/dev` view.
 - NUT is installed and configured in read-only server mode.
 - A udev rule grants the `nut` group access to the detected USB/HID device.
-- Home Assistant receives a diagnostic entity showing the current blocker.
+- Home Assistant receives live read-only telemetry from the Xmart inverter through PI30/QPIGS.
 
 ## Installed/configured files on the Pi
 
@@ -44,7 +44,7 @@ NUT config backups were written under:
 
 ```text
 nut-server.service: active
-nut-driver@inneros_solar.service: inactive/not connected after unsupported-driver probe
+nut-driver@inneros_solar.service: inactive; superseded by direct read-only PI30 HID collector
 ```
 
 The NUT server listens on:
@@ -54,14 +54,14 @@ The NUT server listens on:
 192.168.1.97:3493
 ```
 
-The driver is intentionally not treated as healthy because `upsc inneros_solar@localhost` reports `Driver not connected`.
+NUT remains available for diagnostics, but live telemetry now uses `/opt/inneros/solar_xmart_mpp_read.py` on the Pi and the user timer `inneros-pi01-solar-ha.timer` on Intel `.4`.
 
 ## Home Assistant diagnostic
 
 The existing InnerOS Home Assistant bridge on `192.168.1.4` was used to create/update:
 
 ```text
-sensor.inneros_pi01_solar_usb_status = driver_not_connected
+sensor.inneros_pi01_solar_status = online
 ```
 
 Key attributes include:
@@ -73,17 +73,22 @@ usb_vid_pid: 0665:5161
 interface: USB HID via usbfs (/dev/bus/usb/001/004); no tty device
 nut_server: 192.168.1.97:3493
 nut_driver: nutdrv_qx
-driver_status: stopped_after_failed_read_only_probes
+protocol: PI30
+posted_entities: 9
 ```
 
-## Current blocker
+## Current status
 
-Owner identified the inverter as `Xmart XSI-BB-120-3K-24-MPP`. `nutdrv_qx`, `blazer_usb` and `usbhid-ups` did not expose telemetry for the detected `0665:5161` HID-class device. The blocker is protocol/driver identification, not LAN reachability, SSH, package installation or Home Assistant connectivity.
+Owner identified the inverter as `Xmart XSI-BB-120-3K-24-MPP`. Direct read-only MPP/Voltronic PI30 queries (`QPI`, `QPIGS`) now return telemetry from the detected `0665:5161` HID-class device. The blocker is protocol/driver identification, not LAN reachability, SSH, package installation or Home Assistant connectivity.
 
-Observed safe failure:
+Observed live sample:
 
 ```text
-upsc inneros_solar@localhost -> Error: Driver not connected
+protocol=PI30
+output_power=677 W
+battery_voltage=28.8 V
+battery_capacity=100 %
+load=28 %
 ```
 
 ## Safety decisions
@@ -95,7 +100,7 @@ upsc inneros_solar@localhost -> Error: Driver not connected
 
 ## Next driver investigation
 
-Use one of these safe paths before attempting another live driver. Evidence update: `docs/evidence/inneros_pi01_xmart_probe_20260913.json`.
+Use one of these safe paths before attempting another live driver. Evidence updates: `docs/evidence/inneros_pi01_xmart_probe_20260913.json` and `docs/evidence/inneros_pi01_xmart_live_telemetry_20260913.json`.
 
 
 

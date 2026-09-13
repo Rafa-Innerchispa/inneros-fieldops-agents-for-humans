@@ -32,11 +32,11 @@ This inventory lists edge nodes that are allowed to participate in FieldOps and 
 
 ### Current solar monitoring status
 
-The Pi detects the connected device as USB HID-class `0665:5161` for owner-reported inverter `Xmart XSI-BB-120-3K-24-MPP` (`Cypress Semiconductor USB to Serial`). NUT is installed and exposes the local NUT server on `127.0.0.1:3493` and `192.168.1.97:3493`, but `nutdrv_qx`, `blazer_usb` and `usbhid-ups` do not currently connect to this HID protocol. Home Assistant receives a diagnostic entity instead of fabricated telemetry:
+The Pi detects the connected device as USB HID-class `0665:5161` for owner-reported inverter `Xmart XSI-BB-120-3K-24-MPP` (`Cypress Semiconductor USB to Serial`). NUT is installed and exposes the local NUT server on `127.0.0.1:3493` and `192.168.1.97:3493`, NUT drivers did not expose telemetry, so live monitoring uses direct read-only MPP/Voltronic PI30 HID queries. Home Assistant receives live telemetry:
 
-`sensor.inneros_pi01_solar_usb_status = driver_not_connected`
+`sensor.inneros_pi01_solar_status = online`
 
-Until a supported protocol/driver is proven, the correct state is `driver_not_connected`, not `online`.
+The supported protocol is now proven as PI30 with read-only `QPI`/`QPIGS` queries; no settings commands are used.
 
 ## Recovery note
 
