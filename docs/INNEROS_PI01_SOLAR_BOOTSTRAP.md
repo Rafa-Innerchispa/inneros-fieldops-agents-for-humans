@@ -3,6 +3,7 @@
 Task: `ops_e7058e0ff56d`
 Correlation: `inneros-pi01-solar-ha-20260912`
 Node: `InnerOs-Pi01` (`192.168.1.97`)
+Device model: `Xmart XSI-BB-120-3K-24-MPP`
 
 ## Scope
 
@@ -72,12 +73,12 @@ usb_vid_pid: 0665:5161
 interface: USB HID via usbfs (/dev/bus/usb/001/004); no tty device
 nut_server: 192.168.1.97:3493
 nut_driver: nutdrv_qx
-driver_status: not_connected
+driver_status: stopped_after_failed_read_only_probes
 ```
 
 ## Current blocker
 
-`nutdrv_qx` did not expose telemetry for the detected `0665:5161` HID device. The blocker is protocol/driver identification, not LAN reachability, SSH, package installation or Home Assistant connectivity.
+Owner identified the inverter as `Xmart XSI-BB-120-3K-24-MPP`. `nutdrv_qx`, `blazer_usb` and `usbhid-ups` did not expose telemetry for the detected `0665:5161` HID-class device. The blocker is protocol/driver identification, not LAN reachability, SSH, package installation or Home Assistant connectivity.
 
 Observed safe failure:
 
@@ -94,7 +95,9 @@ upsc inneros_solar@localhost -> Error: Driver not connected
 
 ## Next driver investigation
 
-Use one of these safe paths before attempting another live driver:
+Use one of these safe paths before attempting another live driver. Evidence update: `docs/evidence/inneros_pi01_xmart_probe_20260913.json`.
+
+
 
 1. Identify the exact inverter/controller model from the physical label or vendor app.
 2. Capture a read-only HID descriptor/report sample and compare it with known `nutdrv_qx` subdrivers.

@@ -1,0 +1,48 @@
+{
+  "task_id": "ops_e7058e0ff56d",
+  "correlation_id": "inneros-pi01-solar-ha-20260912",
+  "timestamp_utc": "2026-09-13T04:58:00Z",
+  "device_model_reported_by_owner": "Xmart XSI-BB-120-3K-24-MPP",
+  "device_identity": {
+    "usb_vid_pid": "0665:5161",
+    "vendor_database": "Cypress Semiconductor",
+    "product_database": "USB to Serial",
+    "interface": "USB HID-class via usbfs; no tty device observed"
+  },
+  "read_only_nut_probes": [
+    {
+      "driver": "nutdrv_qx",
+      "options": "protocol=voltronic",
+      "result": "Device not supported / Driver not connected"
+    },
+    {
+      "driver": "nutdrv_qx",
+      "options": "protocol=voltronic-qs",
+      "result": "Device not supported / Driver not connected"
+    },
+    {
+      "driver": "blazer_usb",
+      "options": "vendorid=0665 productid=5161",
+      "result": "No supported UPS detected"
+    },
+    {
+      "driver": "usbhid-ups",
+      "options": "vendorid=0665 productid=5161",
+      "result": "No matching HID UPS found / insufficient permissions on HID class probe"
+    }
+  ],
+  "final_service_state": {
+    "nut_server": "active",
+    "nut_driver_inneros_solar": "inactive",
+    "nut_driver_failed": "inactive",
+    "home_assistant_entity": "sensor.inneros_pi01_solar_usb_status",
+    "home_assistant_state": "driver_not_connected",
+    "home_assistant_driver_status": "stopped_after_failed_read_only_probes"
+  },
+  "safety": {
+    "write_commands_sent_to_inverter_or_controller": false,
+    "nut_write_user_configured": false,
+    "public_exposure_added": false
+  },
+  "next_path": "Use an MPP/Voltronic direct reader such as mpp-solar/PI30 if hidraw/libusb access can be enabled, or use RS232/Modbus/SNMP adapter path documented for the XSI-120V MPP family."
+}
