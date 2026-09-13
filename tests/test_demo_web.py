@@ -14,6 +14,10 @@ def test_demo_web_page_exposes_required_judge_surfaces():
     assert "Security Agent" in html
     assert "Energy Agent" in html
     assert "Facility / Network Agent" in html
+    assert "Lighting / DMX" in html
+    assert "Telephony / VoiceOps" in html
+    assert "Allowlisted scenes only" in html
+    assert "LOCKED pending route verification" in html
     assert "Evidence Receipt" in html
     assert "Independent" in html
     assert "Technical trace" in html or "Technical Trace" in html
