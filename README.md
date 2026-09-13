@@ -41,6 +41,9 @@ Run the synthetic demo after cloning:
 
 ```bash
 python scripts/demo_synthetic.py
+python scripts/demo_synthetic.py --scenario denied
+python scripts/demo_synthetic.py --scenario failed-execution
+python scripts/demo_synthetic.py --scenario failed-verification
 ```
 
 Run tests:
@@ -48,6 +51,8 @@ Run tests:
 ```bash
 python -m pytest
 ```
+
+Optional provider metadata is configured through environment variables; see [`.env.example`](.env.example). The local demo is credential-free. Bedrock/Strands remains optional and fails closed until `FIELDOPS_BEDROCK_MODEL_ID`, AWS region and owner-approved credentials are supplied.
 
 ## Architecture
 

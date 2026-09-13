@@ -51,14 +51,31 @@ def run_action(
 
     # A command returning success is not enough. Always call the verifier.
     verification = verifier.verify(request, execution)
+    quality_gate = "passed" if execution.success and verification.passed else "failed"
+    evidence_refs: list[str] = []
+    if approval.evidence_ref:
+        evidence_refs.append(approval.evidence_ref)
+    for key in ("evidence_ref", "evidence_refs"):
+        value = execution.details.get(key)
+        if isinstance(value, str):
+            evidence_refs.append(value)
+        elif isinstance(value, (list, tuple)):
+            evidence_refs.extend(str(item) for item in value)
 
     return EvidenceReceipt(
         correlation_id=request.correlation_id,
         route=route,
         route_reason=route_reason,
         policy_version=request.policy_version,
+        requested_action=request.action_type,
+        target_ref=request.target_ref,
         executor=execution.executor,
+        verifier=verification.verifier,
         action_success=execution.success,
         verification_passed=verification.passed,
+        quality_gate=quality_gate,
         approval_ref=approval.evidence_ref,
+        evidence_refs=tuple(evidence_refs),
+        execution_details=dict(execution.details),
+        observed_state=dict(verification.observed_state),
     )
