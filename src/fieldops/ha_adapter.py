@@ -13,6 +13,7 @@ import importlib
 import os
 from pathlib import Path
 import sys
+import time
 from typing import Any, Mapping, Protocol
 
 from .contracts import ActionRequest, ExecutionResult, VerificationResult
@@ -171,17 +172,23 @@ class HomeAssistantEntityExecutor:
 
 
 class HomeAssistantEntityVerifier:
-    """Read the target back from HA after execution."""
+    """Read the target back from HA after execution with bounded polling."""
 
     def __init__(
         self,
         client: HomeAssistantClient,
         config: HomeAssistantBindingConfig,
         verifier_id: str = "homeassistant-state-readback",
+        attempts: int = 5,
+        delay_seconds: float = 0.25,
+        sleeper=time.sleep,
     ):
         self.client = client
         self.config = config
         self.verifier_id = verifier_id
+        self.attempts = max(1, min(int(attempts), 10))
+        self.delay_seconds = max(0.0, min(float(delay_seconds), 2.0))
+        self.sleeper = sleeper
 
     def verify(self, request: ActionRequest, execution: ExecutionResult) -> VerificationResult:
         entity_id = str(request.target_ref or "").strip().lower()
@@ -193,8 +200,18 @@ class HomeAssistantEntityVerifier:
                 passed=False,
                 observed_state={"target_ref": entity_id, "state": None, "allowlisted": False},
             )
-        raw = dict(self.client.get_state(entity_id))
-        observed = _entity_state(raw)
+
+        observed = None
+        attempts_used = 0
+        for attempt in range(self.attempts):
+            attempts_used = attempt + 1
+            raw = dict(self.client.get_state(entity_id))
+            observed = _entity_state(raw)
+            if observed == desired:
+                break
+            if attempt < self.attempts - 1 and self.delay_seconds:
+                self.sleeper(self.delay_seconds)
+
         passed = bool(execution.success and observed == desired)
         return VerificationResult(
             correlation_id=request.correlation_id,
@@ -204,5 +221,6 @@ class HomeAssistantEntityVerifier:
                 "target_ref": entity_id,
                 "state": observed,
                 "allowlisted": True,
+                "readback_attempts": attempts_used,
             },
         )

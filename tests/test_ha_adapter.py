@@ -39,6 +39,27 @@ class FakeHA:
         return {"ok": True}
 
 
+class SequencedReadHA(FakeHA):
+    def __init__(self, sequence):
+        super().__init__()
+        self.sequence = list(sequence)
+        self.read_count = 0
+
+    def get_state(self, entity_id):
+        self.read_count += 1
+        if not self.sequence:
+            state = self.states[entity_id]
+        elif len(self.sequence) == 1:
+            state = self.sequence[0]
+        else:
+            state = self.sequence.pop(0)
+        self.states[entity_id] = state
+        return {
+            "ok": True,
+            "entity": {"entity_id": entity_id, "state": state},
+        }
+
+
 def request(target="light.cinta_escritorio", state="on"):
     return ActionRequest(
         correlation_id="ha-real-001",
@@ -52,6 +73,15 @@ def request(target="light.cinta_escritorio", state="on"):
 def config():
     return HomeAssistantBindingConfig(
         allowed_lights=frozenset({"light.cinta_escritorio", "light.luz_estudio_uno"})
+    )
+
+
+def fake_ack():
+    return ExecutionResult(
+        correlation_id="ha-real-001",
+        executor="inneros-ha-service-bridge",
+        success=True,
+        details={"backend_ack": True},
     )
 
 
@@ -74,9 +104,10 @@ def test_executor_sets_allowlisted_light_and_verifier_reads_it_back():
     assert execution.details["rollback_state"] == "off"
     assert client.calls == [("light", "turn_on", "light.cinta_escritorio", None)]
 
-    verification = HomeAssistantEntityVerifier(client, config()).verify(request(), execution)
+    verification = HomeAssistantEntityVerifier(client, config(), delay_seconds=0).verify(request(), execution)
     assert verification.passed is True
     assert verification.observed_state["state"] == "on"
+    assert verification.observed_state["readback_attempts"] == 1
 
 
 def test_non_allowlisted_entity_never_reaches_home_assistant_service_call():
@@ -97,14 +128,30 @@ def test_invalid_state_never_reaches_home_assistant_service_call():
     assert client.calls == []
 
 
-def test_verifier_rejects_executor_ack_when_readback_does_not_match():
-    client = FakeHA()
-    fake_ack = ExecutionResult(
-        correlation_id="ha-real-001",
-        executor="inneros-ha-service-bridge",
-        success=True,
-        details={"backend_ack": True},
-    )
-    verification = HomeAssistantEntityVerifier(client, config()).verify(request(), fake_ack)
+def test_verifier_polls_until_delayed_state_converges():
+    client = SequencedReadHA(["off", "off", "on"])
+    verification = HomeAssistantEntityVerifier(
+        client,
+        config(),
+        attempts=5,
+        delay_seconds=0.01,
+        sleeper=lambda _seconds: None,
+    ).verify(request(), fake_ack())
+    assert verification.passed is True
+    assert verification.observed_state["state"] == "on"
+    assert verification.observed_state["readback_attempts"] == 3
+    assert client.read_count == 3
+
+
+def test_verifier_rejects_executor_ack_when_readback_never_matches():
+    client = SequencedReadHA(["off"])
+    verification = HomeAssistantEntityVerifier(
+        client,
+        config(),
+        attempts=3,
+        delay_seconds=0,
+    ).verify(request(), fake_ack())
     assert verification.passed is False
     assert verification.observed_state["state"] == "off"
+    assert verification.observed_state["readback_attempts"] == 3
+    assert client.read_count == 3
