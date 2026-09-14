@@ -1,4 +1,9 @@
+import re
+import shutil
+import subprocess
 import time
+
+import pytest
 
 from src.fieldops.operator_web import (
     _auth_config,
@@ -35,47 +40,78 @@ class FakeHA:
         return {"ok": True}
 
 
-def test_operator_console_is_single_page_guided_demo():
+def _html(base_path=""):
     bundle = build_product_runtime(
         {"FIELDOPS_HA_LIGHT_ALLOWLIST": "light.cinta_escritorio"},
         ha_client=FakeHA(),
     )
-    html = render_operator_page(bundle)
+    return render_operator_page(bundle, base_path=base_path)
+
+
+def test_operator_console_is_single_page_clickable_demo():
+    html = _html()
     assert "Guided Judge Demo" in html
-    assert "Follow steps 1 → 6" in html
-    assert "1 · Camera" in html
-    assert "2 · Solar" in html
-    assert "3 · Wi-Fi" in html
-    assert "4 · Alarm" in html
-    assert "5 · PBX" in html
-    assert "6 · Governed Action" in html
-    assert "Security / Camera" in html
-    assert "Solar / Energy" in html
-    assert "Alarm / Security Panel" in html
-    assert "Telephony / PBX" in html
+    assert "LIVE EVIDENCE · CLICK EACH STEP" in html
+    assert "Observe the real environment, then run one governed action." in html
+
+    expected_controls = [
+        ('guide-1', 'camera.capture_evidence', 'camera.dahua.ch2'),
+        ('guide-2', 'energy.read_status', 'solar.pi01'),
+        ('guide-3', 'network.scan_wifi', 'wifi.amd-dedicated'),
+        ('guide-4', 'alarm.read_status', 'alarm.panel_home_ralphi'),
+        ('guide-5', 'telephony.read_status', 'voiceops.ucm'),
+    ]
+    for element_id, observation, target in expected_controls:
+        assert f'id="{element_id}"' in html
+        assert f'data-read="{observation}"' in html
+        assert f'data-target="{target}"' in html
+
+    assert "function runObservation(button)" in html
+    assert "buttons[i].onclick=function(){runObservation(this);}" in html
+    assert "modules{display:none!important}" in html
     assert "What happened" in html
     assert "Deny Action" in html
     assert "Approve & Execute" in html
     assert "EXECUTED + VERIFIED" in html
     assert "DENIED — NOTHING EXECUTED" in html
-    assert "Transient camera preview" in html
+    assert "TRANSIENT CAMERA PREVIEW" in html
     assert "/api/camera/preview" in html
     assert "/api/demo" in html
     assert "Safe Home Assistant action" not in html
     assert "Open Judge Mode" not in html
-    assert "data.ok?'PASS '" not in html
+    assert "Nothing is hidden on another screen" not in html
+    assert "Bidirectional microphone/STT remains" not in html
+    assert "A real bidirectional phone call has been owner-validated end to end." in html
+    assert "?." not in html
+    assert "??" not in html
+    assert "</script></script>" not in html
+    assert "</section></section>" not in html
+
+
+def test_operator_console_inline_javascript_parses(tmp_path):
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("node is not installed")
+    html = _html(base_path="/app/judge")
+    match = re.search(r"<script>(.*?)</script>", html, flags=re.DOTALL)
+    assert match is not None
+    script_path = tmp_path / "fieldops-judge.js"
+    script_path.write_text(match.group(1), encoding="utf-8")
+    result = subprocess.run(
+        [node, "--check", str(script_path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
 
 
 def test_operator_console_uses_prefixed_routes_for_inneros_judge_path():
-    bundle = build_product_runtime(
-        {"FIELDOPS_HA_LIGHT_ALLOWLIST": "light.cinta_escritorio"},
-        ha_client=FakeHA(),
-    )
-    html = render_operator_page(bundle, base_path="/app/judge")
+    html = _html(base_path="/app/judge")
     assert 'action="/app/judge/api/login"' not in html
-    assert "const observeUrl='/app/judge/api/observe'" in html
-    assert "const demoUrl='/app/judge/api/demo'" in html
-    assert "const cameraPreviewUrl='/app/judge/api/camera/preview'" in html
+    assert "var observeUrl='/app/judge/api/observe'" in html
+    assert "var demoUrl='/app/judge/api/demo'" in html
+    assert "var cameraPreviewUrl='/app/judge/api/camera/preview'" in html
     assert 'href="/app/judge/api/status"' in html
     assert 'href="/app/judge/logout"' in html
     assert 'href="/app/judge/judge?scenario=happy"' not in html
