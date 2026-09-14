@@ -31,15 +31,17 @@ The hackathon snapshot contains:
 - independent post-action verification;
 - Evidence Receipts with correlation, route, action, executor, verifier, and quality gate;
 - an AgentCore-oriented entrypoint/config example without committed secrets;
-- a judge-facing web console with Security, Energy, and Facility/Network views;
+- an authenticated judge-facing web console with Security/Camera, Solar/Energy, Network/Facility, Alarm/Security Panel, and Telephony/PBX modules;
 - real Xmart solar evidence from an InnerOS Raspberry Pi Edge Node using read-only PI30 `QPI`/`QPIGS` queries;
 - real UniFi RF evidence from the local Home Assistant/UniFi integration;
+- real read-only Intelbras/Home Assistant alarm panel and zone status;
+- read-only VoiceOps/PBX health evidence; FieldOps does not register SIP, read SIP credentials, or originate arbitrary calls;
 - an allowlisted read-only Home Assistant adapter that can show live local telemetry when server-side credentials are configured;
 - explicit `LIVE REAL` vs `CAPTURED REAL` labeling so recorded evidence is never presented as live telemetry;
 - credential-free synthetic execution fixtures for approval, execution-failure, and verification-failure paths;
 - architecture, pre-existing-code disclosure, and edge-node documentation.
 
-The Intelbras alarm is currently discovered as a real online network device. This snapshot **does not claim alarm control** because its panel protocol/model integration has not yet been proven.
+This snapshot **does not claim alarm control**. Arm/disarm/panic/siren/PGM remain outside FieldOps until a bounded executor plus independent readback is proven.
 
 ## Run the demo
 
@@ -57,7 +59,7 @@ Run the final Strands-backed judge console:
 python scripts/demo_web_strands.py --host 127.0.0.1 --port 8777
 ```
 
-Open `http://127.0.0.1:8777`.
+Set `FIELDOPS_JUDGE_USERNAME`, `FIELDOPS_JUDGE_PASSWORD`, and `FIELDOPS_JUDGE_SESSION_SECRET` outside Git before exposing the console publicly. Open `http://127.0.0.1:8777` locally or the approved public route when configured.
 
 The console demonstrates:
 
@@ -68,7 +70,7 @@ The console demonstrates:
 5. **Independent Verification** before success is accepted.
 6. **Evidence Receipt** proving what happened.
 
-It also shows the real Energy and Facility/Network evidence included with this submission. When authorized local Home Assistant credentials are supplied server-side, `/api/status` can refresh allowlisted local telemetry without exposing those credentials to the browser.
+It also shows real Energy, Facility/Network, Alarm, and PBX status evidence. When authorized local Home Assistant credentials are supplied server-side, authenticated `/api/observe` calls can refresh allowlisted local telemetry without exposing those credentials to the browser. Public unauthenticated observations fail closed; physical execution remains loopback-gated.
 
 Run credential-free scenarios directly:
 
@@ -82,13 +84,20 @@ python scripts/demo_strands.py --scenario happy
 
 ## Verification
 
-Final pre-submission verification on 2026-09-13:
+Final pre-submission verification on 2026-09-14:
 
 ```text
-python -m pytest -q                         22 passed
-python -m compileall -q src                 PASS
-Judge Console /                             PASS
+python -m pytest -q                         69 passed
+python -m compileall -q src scripts agentcore   PASS
+Judge Console login/logout                  PASS
+Judge Console /app/judge                    PASS
+Public-style /api/observe without cookie    FAIL-CLOSED
+Authenticated /api/observe Solar            PASS
+Authenticated /api/observe Wi-Fi            PASS
+Authenticated /api/observe Alarm            PASS
+Authenticated /api/observe PBX              PASS
 Judge Console /api/demo?scenario=happy      PASS
+Judge Console /api/demo?scenario=denied     PASS
 Strands runtime                             active=true
 Bounded tool                                execute_fieldops_demo -> success
 Independent verification                    PASS
@@ -104,6 +113,14 @@ The InnerOS Edge Node reads an **Xmart XSI-BB-120-3K-24-MPP** inverter over USB 
 ### Facility / Network Agent
 
 `docs/evidence/unifi_rf_snapshot_20260913.json` contains sanitized real UniFi RF evidence captured through Home Assistant diagnostics. It includes AP/channel/utilization/client information and a real camera retry-rate problem. No Wi-Fi credentials are stored and no RF settings are changed by the demo.
+
+### Alarm / Security Panel
+
+The console reads `alarm_control_panel.panel_home_ralphi_panel_home_ralphi` and the `binary_sensor.panel_home_ralphi_zona_*` zone projection through the existing Home Assistant/Intelbras Guardian path. It reports panel state, zone count, and open-zone count as read-only evidence. It does not expose arm/disarm/siren/PGM.
+
+### Telephony / PBX
+
+The console reads VoiceOps health and an independent Asterisk/Grandstream PBX AMI banner probe. It shows whether the control plane is reachable, while live SIP/RTP, Zoiper registration, TTS audio, and owner-visible calls remain owned by VoiceOps.
 
 ### Security Agent
 

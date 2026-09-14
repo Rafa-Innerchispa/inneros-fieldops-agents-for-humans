@@ -1,5 +1,7 @@
 from src.fieldops.observations import GovernedObservationRuntime, ObservationRequest
 from src.fieldops.read_adapters import (
+    AlarmStatusObserver,
+    AlarmStatusVerifier,
     CameraEvidenceObserver,
     CameraEvidenceVerifier,
     NetworkScanObserver,
@@ -35,9 +37,37 @@ class FakeSolarHA:
             "sensor.inneros_pi01_solar_output_power": {"state": "534", "attributes": {}},
             "sensor.inneros_pi01_solar_grid_voltage": {"state": "125.4", "attributes": {}},
             "sensor.inneros_pi01_solar_mode": {"state": "utility_present_backup_float", "attributes": {}},
+            "alarm_control_panel.panel_home_ralphi_panel_home_ralphi": {
+                "state": "disarmed",
+                "attributes": {"friendly_name": "Panel Home Ralphi Panel Home Ralphi"},
+            },
         }
         entity = states.get(entity_id)
         return {"ok": bool(entity), "entity": entity} if entity else {"ok": False}
+
+    def list_states(self, *, domain=None, limit=80):
+        assert domain == "binary_sensor"
+        return {
+            "ok": True,
+            "count": 3,
+            "entities": [
+                {
+                    "entity_id": "binary_sensor.panel_home_ralphi_zona_01",
+                    "state": "off",
+                    "friendly_name": "Panel Home Ralphi Zona 01",
+                },
+                {
+                    "entity_id": "binary_sensor.panel_home_ralphi_zona_11",
+                    "state": "on",
+                    "friendly_name": "Panel Home Ralphi Zona 11",
+                },
+                {
+                    "entity_id": "binary_sensor.other_alarm_zona_01",
+                    "state": "on",
+                    "friendly_name": "Other Alarm Zona 01",
+                },
+            ],
+        }
 
     def call_service(self, *args, **kwargs):
         raise AssertionError("read-only solar observation must never call a HA service")
@@ -152,3 +182,40 @@ def test_wifi_scan_fails_closed_if_route_changes():
     )
     assert receipt.quality_gate == "failed"
     assert receipt.verification_passed is False
+
+
+def test_alarm_status_is_read_only_verified_and_receipted():
+    runtime = GovernedObservationRuntime()
+    runtime.register(
+        "alarm.read_status",
+        observer=AlarmStatusObserver(FakeSolarHA()),
+        verifier=AlarmStatusVerifier(),
+    )
+    receipt = runtime.observe(
+        ObservationRequest(
+            correlation_id="alarm-001",
+            observation_type="alarm.read_status",
+            target_ref="alarm.panel_home_ralphi",
+        )
+    )
+    assert receipt.quality_gate == "passed"
+    assert receipt.requires_approval is False
+    assert receipt.observed_state["panel_state"] == "disarmed"
+    assert receipt.observed_state["zone_count"] == 2
+    assert receipt.observed_state["open_zone_count"] == 1
+    assert receipt.observed_state["read_only"] is True
+    assert receipt.observed_state["arm_disarm_available_in_fieldops"] is False
+    assert receipt.observed_state["siren_available_in_fieldops"] is False
+
+
+def test_alarm_status_rejects_non_allowlisted_target():
+    observer = AlarmStatusObserver(FakeSolarHA())
+    result = observer.observe(
+        ObservationRequest(
+            correlation_id="alarm-deny",
+            observation_type="alarm.read_status",
+            target_ref="alarm.other",
+        )
+    )
+    assert result.success is False
+    assert result.details["reason"] == "target_not_allowlisted"

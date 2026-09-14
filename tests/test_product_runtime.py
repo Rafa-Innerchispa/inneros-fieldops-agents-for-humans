@@ -3,7 +3,10 @@ from src.fieldops.product_runtime import build_product_runtime
 
 class FakeHA:
     def __init__(self):
-        self.states = {"light.cinta_escritorio": "off"}
+        self.states = {
+            "light.cinta_escritorio": "off",
+            "alarm_control_panel.panel_home_ralphi_panel_home_ralphi": "disarmed",
+        }
 
     def configured(self):
         return True
@@ -11,7 +14,27 @@ class FakeHA:
     def get_state(self, entity_id):
         if entity_id not in self.states:
             return {"ok": False}
-        return {"ok": True, "entity": {"entity_id": entity_id, "state": self.states[entity_id]}}
+        return {
+            "ok": True,
+            "entity": {
+                "entity_id": entity_id,
+                "state": self.states[entity_id],
+                "attributes": {"friendly_name": entity_id},
+            },
+        }
+
+    def list_states(self, *, domain=None, limit=80):
+        return {
+            "ok": True,
+            "count": 1,
+            "entities": [
+                {
+                    "entity_id": "binary_sensor.panel_home_ralphi_zona_01",
+                    "state": "off",
+                    "friendly_name": "Panel Home Ralphi Zona 01",
+                }
+            ],
+        }
 
     def call_service(self, domain, service, *, entity_id=None, data=None):
         if domain != "light" or entity_id not in self.states:
@@ -67,6 +90,7 @@ def test_product_runtime_binds_real_ha_and_dmx_when_configured():
     assert "homeassistant.entity_control" in bundle.bindings
     assert "dmx.set_scene" in bundle.bindings
     assert "dmx.blackout" in bundle.bindings
+    assert "alarm.read_status" in bundle.observation_bindings
     assert bundle.ha_allowlist == ("light.cinta_escritorio",)
 
 

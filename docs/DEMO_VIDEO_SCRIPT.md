@@ -16,28 +16,30 @@ Visual: simple architecture.
 
 > InnerOS FieldOps is a Strands-powered Professional Agent. It receives an operational goal, gathers context, routes work between cloud and local resources, requests approval when required, executes the action, independently verifies the result and produces an evidence receipt.
 
-## 0:50–2:40 — Working demo
+## 0:50–3:35 — Working demo
 
-Visual: terminal or compact UI.
+Visual: authenticated Judge Console at `/app/judge` or the LAN/service URL.
 
-Scenario: synthetic camera gateway is unhealthy.
+Scenario: operator signs in and opens the unified FieldOps console.
 
 Show:
 
-1. Incident enters FieldOps.
-2. Current state is unhealthy.
-3. Agent proposes `service_restart`.
-4. Policy reports `approval_required`.
-5. First run with pending/rejected approval stops before executor invocation.
-6. Approve the action.
-7. Executor performs the action.
-8. Independent verifier observes `healthy=true`.
-9. Evidence Receipt appears.
-10. Final result: `Resolved autonomously. No further action required.`
+1. Login screen protects the public judge console.
+2. Overview shows normalized runtime health: Agent/Strands, Edge Node/Pi, Home Assistant, PBX, Alarm, UniFi/RF.
+3. `Read Solar` returns real Xmart/Pi01 telemetry and an Evidence Receipt.
+4. `Scan Wi-Fi` returns real RF evidence with Ethernet route verification.
+5. `Read Alarm` returns the Intelbras/Home Assistant panel state and zone summary without arming, disarming or exposing siren control.
+6. `Read PBX` returns VoiceOps/PBX health and explicitly shows that VoiceOps owns SIP/RTP execution.
+7. Open Judge Mode and show the governed security flow.
+8. Denied approval path stops before executor invocation.
+9. Approved path executes the bounded security fixture.
+10. Independent verifier observes `healthy=true`.
+11. Evidence Receipt appears.
+12. Final result: `Resolved autonomously. No further action required.`
 
 Narration should explicitly say:
 
-> Notice that a successful command is not considered success. FieldOps verifies the resulting state separately.
+> Notice that a successful command is not considered success. FieldOps verifies the resulting state separately, and read-only modules produce their own evidence receipts without pretending to control devices.
 
 ## 2:40–3:25 — Why Strands + AWS
 
@@ -73,7 +75,9 @@ Visual: Evidence Receipt + final architecture.
 - Prefer 4:30–4:50.
 - Show the working project for the majority of the video.
 - Avoid long slides.
-- Make approval denial and post-action verification visible.
+- Make login, approval denial and post-action verification visible.
+- Show real Solar, Network, Alarm and PBX status before claiming the demo is ready.
 - Never imply synthetic device data is a production customer system.
+- Never imply FieldOps can originate arbitrary calls; phone execution remains in VoiceOps and must show a real PASS or an exact blocker.
 - Do not expose IP addresses, credentials, customer names or private infrastructure.
 - Video must be publicly playable on the platform accepted by Devpost.

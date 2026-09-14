@@ -292,3 +292,108 @@ class NetworkScanVerifier:
                 "configuration_changed": False,
             },
         )
+
+
+class AlarmStatusObserver:
+    """Read the Intelbras/HA alarm projection without exposing control methods."""
+
+    ALLOWED_TARGETS = {"alarm.intelbras", "alarm.panel_home_ralphi"}
+    DEFAULT_PANEL_ENTITY = "alarm_control_panel.panel_home_ralphi_panel_home_ralphi"
+    DEFAULT_ZONE_PREFIX = "binary_sensor.panel_home_ralphi_zona_"
+
+    def __init__(
+        self,
+        client: HomeAssistantClient,
+        *,
+        panel_entity_id: str | None = None,
+        zone_prefix: str | None = None,
+        observer_id: str = "inneros-ha-intelbras-alarm-read",
+    ):
+        self.client = client
+        self.panel_entity_id = (panel_entity_id or self.DEFAULT_PANEL_ENTITY).strip().lower()
+        self.zone_prefix = (zone_prefix or self.DEFAULT_ZONE_PREFIX).strip().lower()
+        self.observer_id = observer_id
+
+    def observe(self, request: ObservationRequest) -> ObservationResult:
+        target = str(request.target_ref or "").strip().lower()
+        if request.observation_type != "alarm.read_status" or target not in self.ALLOWED_TARGETS:
+            return ObservationResult(
+                correlation_id=request.correlation_id,
+                observer=self.observer_id,
+                success=False,
+                details={"reason": "target_not_allowlisted", "target_ref": target},
+            )
+
+        panel = _entity_payload(dict(self.client.get_state(self.panel_entity_id)))
+        panel_attrs = panel.get("attributes") if isinstance(panel.get("attributes"), Mapping) else {}
+        zones: list[Mapping[str, Any]] = []
+        list_states = getattr(self.client, "list_states", None)
+        if callable(list_states):
+            raw_zones = list_states(domain="binary_sensor", limit=500)
+            if isinstance(raw_zones, Mapping) and raw_zones.get("ok"):
+                for row in raw_zones.get("entities") or []:
+                    if not isinstance(row, Mapping):
+                        continue
+                    entity_id = str(row.get("entity_id") or "").strip().lower()
+                    if entity_id.startswith(self.zone_prefix):
+                        zones.append(
+                            {
+                                "entity_id": entity_id,
+                                "state": row.get("state"),
+                                "friendly_name": row.get("friendly_name"),
+                            }
+                        )
+
+        open_zones = [row for row in zones if str(row.get("state") or "").lower() == "on"]
+        details = {
+            "target_ref": target,
+            "panel_entity_id": self.panel_entity_id,
+            "panel_state": panel.get("state"),
+            "friendly_name": panel_attrs.get("friendly_name"),
+            "zone_prefix": self.zone_prefix,
+            "zone_count": len(zones),
+            "open_zone_count": len(open_zones),
+            "open_zones": open_zones[:12],
+            "zones_sample": zones[:24],
+            "read_only": True,
+            "arm_disarm_available_in_fieldops": False,
+            "siren_available_in_fieldops": False,
+            "credentials_exposed": False,
+            "evidence_ref": f"evidence://alarm/ha/{request.correlation_id}",
+        }
+        return ObservationResult(
+            correlation_id=request.correlation_id,
+            observer=self.observer_id,
+            success=bool(panel),
+            details=details,
+        )
+
+
+class AlarmStatusVerifier:
+    def __init__(self, verifier_id: str = "alarm-read-only-state-verifier"):
+        self.verifier_id = verifier_id
+
+    def verify(self, request: ObservationRequest, result: ObservationResult) -> ObservationVerification:
+        details = result.details
+        state = str(details.get("panel_state") or "").lower()
+        read_only = details.get("read_only") is True
+        no_control = (
+            details.get("arm_disarm_available_in_fieldops") is False
+            and details.get("siren_available_in_fieldops") is False
+            and details.get("credentials_exposed") is False
+        )
+        passed = bool(result.success and state not in {"", "unknown", "unavailable"} and read_only and no_control)
+        return ObservationVerification(
+            correlation_id=request.correlation_id,
+            verifier=self.verifier_id,
+            passed=passed,
+            observed_state={
+                "panel_entity_id": details.get("panel_entity_id"),
+                "panel_state": details.get("panel_state"),
+                "zone_count": details.get("zone_count"),
+                "open_zone_count": details.get("open_zone_count"),
+                "read_only": read_only,
+                "arm_disarm_available_in_fieldops": False,
+                "siren_available_in_fieldops": False,
+            },
+        )

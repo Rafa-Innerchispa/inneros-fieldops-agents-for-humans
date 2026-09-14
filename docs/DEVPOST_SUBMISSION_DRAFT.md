@@ -102,12 +102,17 @@ The submission includes captured real evidence for output power, battery voltage
 ### 3. Facility / Network Agent — real UniFi evidence
 The submission includes sanitized real RF/network evidence from the local UniFi installation through Home Assistant diagnostics: AP state, channels, utilization, client distribution, and retry behavior. This demonstrates the same FieldOps model applied to infrastructure rather than to a single camera workflow.
 
-An Intelbras alarm is also discovered as an online real device. We do **not** claim alarm control in this submission because its exact panel protocol/model integration is still being validated.
+An Intelbras alarm panel is also visible through the existing Home Assistant/Guardian projection. The judge console reads the panel and zone state as real read-only evidence. We do **not** claim arm/disarm/panic/siren/PGM control in this submission.
+
+### 4. Telephony / PBX status — real control-plane evidence
+
+FieldOps reads VoiceOps health and an independent PBX AMI banner probe so the console can show whether the phone control plane is reachable. FieldOps does **not** register SIP, read SIP secrets, or originate arbitrary calls. VoiceOps remains the owner of live audio and call execution.
 
 ## Judge console
-The local no-dependency judge console exposes:
+The authenticated judge console exposes:
 
-- Security, Energy, and Facility/Network operational cards;
+- Security/Camera, Solar/Energy, Network/Facility, Alarm/Security Panel, and Telephony/PBX modules;
+- Login/logout with server-side judge credentials;
 - Judge Mode with approve/deny/failed-verification paths;
 - the full observe → understand → approve → act → verify pipeline;
 - Evidence Receipts;
@@ -118,8 +123,10 @@ The local no-dependency judge console exposes:
 Run it with:
 
 ```bash
-python scripts/demo_web.py --host 127.0.0.1 --port 8765
+python scripts/demo_web_strands.py --host 0.0.0.0 --port 8777
 ```
+
+For public/demo access, set `FIELDOPS_JUDGE_USERNAME`, `FIELDOPS_JUDGE_PASSWORD`, and `FIELDOPS_JUDGE_SESSION_SECRET` outside Git before exposing the route. Public unauthenticated access must fail closed; authenticated observations are allowed, while physical execution remains loopback-gated.
 
 ## AWS / Strands usage
 

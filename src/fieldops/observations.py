@@ -138,6 +138,15 @@ _OBSERVATIONS = {
         verifier_id="voiceops-pbx-independent-readback",
         truth_note="VoiceOps remains the sole owner of SIP/RTP execution. FieldOps checks the existing VoiceOps health surface and independently verifies private PBX AMI reachability without reading telephony credentials.",
     ),
+    "alarm.read_status": ObservationPolicy(
+        observation_type="alarm.read_status",
+        domain="alarm",
+        description="Read the Intelbras alarm panel and zone presence without arming, disarming, triggering siren, or changing panel state.",
+        availability=ObservationAvailability.ENABLED_REAL,
+        observer_id="inneros-ha-intelbras-alarm-read",
+        verifier_id="alarm-read-only-state-verifier",
+        truth_note="Reads the existing Home Assistant/Intelbras Guardian projection only. FieldOps does not expose arm/disarm/panic/siren/PGM control.",
+    ),
 }
 
 

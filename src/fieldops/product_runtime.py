@@ -22,6 +22,8 @@ from .ha_adapter import (
 )
 from .observations import GovernedObservationRuntime
 from .read_adapters import (
+    AlarmStatusObserver,
+    AlarmStatusVerifier,
     CameraEvidenceObserver,
     CameraEvidenceVerifier,
     EdgeReadClient,
@@ -89,8 +91,17 @@ def build_product_runtime(
             observer=SolarStatusObserver(resolved_ha),
             verifier=SolarStatusVerifier(),
         )
+        observations.register(
+            "alarm.read_status",
+            observer=AlarmStatusObserver(
+                resolved_ha,
+                panel_entity_id=str(source.get("FIELDOPS_ALARM_ENTITY") or "").strip() or None,
+                zone_prefix=str(source.get("FIELDOPS_ALARM_ZONE_PREFIX") or "").strip() or None,
+            ),
+            verifier=AlarmStatusVerifier(),
+        )
     except HomeAssistantConfigurationError as exc:
-        errors.append(f"energy:{exc}")
+        errors.append(f"homeassistant-read:{exc}")
 
     try:
         ha_config = HomeAssistantBindingConfig.from_env(source)
