@@ -43,7 +43,28 @@ The hackathon snapshot contains:
 
 This snapshot **does not claim alarm control**. Arm/disarm/panic/siren/PGM remain outside FieldOps until a bounded executor plus independent readback is proven.
 
-## Run the demo
+## Judge testing instructions
+
+The final judge build is deployed at:
+
+**https://inneros.creatorcore.ai/app/judge**
+
+Use the judge credentials provided privately by the project owner. Credentials are configured server-side and are intentionally not committed to Git or published in this README.
+
+Recommended evaluation flow:
+
+1. **Sign in** and confirm the unified status strip plus the five operational modules: Security/Camera, Solar/Energy, Network/Facility, Alarm/Security Panel, and Telephony/PBX.
+2. Run **Read Solar**. Review Xmart/Pi01 telemetry, source label, timestamp/freshness, verification result, and Evidence Receipt. The inverter path is read-only.
+3. Run **Scan Wi-Fi**. Review sanitized RF/network evidence and confirm that Ethernet route integrity is verified before and after the scan. No RF mutation is performed.
+4. Run **Read Alarm**. Review the real Home Assistant/Intelbras panel state and zone summary. FieldOps intentionally exposes no arm/disarm/panic/siren/PGM control in this submission.
+5. Run **Read PBX**. Review VoiceOps/Grandstream PBX control-plane health. FieldOps does not register SIP, read SIP secrets, or originate arbitrary calls. Audible owner-side call confirmation is not claimed while the current VoiceOps endpoints remain unavailable.
+6. Open the **Security / Judge** workflow and run the **deny** path. Confirm that the executor remains blocked when human approval is denied.
+7. Run the **approved** Security path and follow the governed sequence: `OBSERVE -> ANALYZE -> APPROVE -> EXECUTE -> VERIFY -> EVIDENCE`.
+8. Inspect the **Evidence Receipt** and final quality gate. A successful command ACK is not accepted as success; FieldOps requires independent state verification.
+9. Review source labels throughout the console. `REAL`, `CAPTURED REAL`, and `SYNTHETIC` evidence are explicitly distinguished.
+10. **Log out** and confirm the authenticated boundary. Public unauthenticated observations fail closed by design.
+
+### Local reproduction
 
 Create the environment:
 
@@ -59,20 +80,9 @@ Run the final Strands-backed judge console:
 python scripts/demo_web_strands.py --host 127.0.0.1 --port 8777
 ```
 
-Set `FIELDOPS_JUDGE_USERNAME`, `FIELDOPS_JUDGE_PASSWORD`, and `FIELDOPS_JUDGE_SESSION_SECRET` outside Git before exposing the console publicly. Open `http://127.0.0.1:8777` locally or the approved public route when configured.
+Set `FIELDOPS_JUDGE_USERNAME`, `FIELDOPS_JUDGE_PASSWORD`, and `FIELDOPS_JUDGE_SESSION_SECRET` outside Git before exposing the console publicly.
 
-The console demonstrates:
-
-1. **Observe** an operational incident.
-2. **Understand** and select a bounded FieldOps action through a real `strands.Agent` runtime.
-3. **Human Approval** for consequential execution.
-4. **Act** through the governed executor boundary.
-5. **Independent Verification** before success is accepted.
-6. **Evidence Receipt** proving what happened.
-
-It also shows real Energy, Facility/Network, Alarm, and PBX status evidence. When authorized local Home Assistant credentials are supplied server-side, authenticated `/api/observe` calls can refresh allowlisted local telemetry without exposing those credentials to the browser. Public unauthenticated observations fail closed; physical execution remains loopback-gated.
-
-Run credential-free scenarios directly:
+Credential-free synthetic scenarios remain available for reproducible approval and failure-path testing:
 
 ```bash
 python scripts/demo_synthetic.py
@@ -82,26 +92,28 @@ python scripts/demo_synthetic.py --scenario failed-verification
 python scripts/demo_strands.py --scenario happy
 ```
 
+The repository also contains an AgentCore-oriented entrypoint and optional Amazon Bedrock provider configuration. Live Bedrock inference is **not claimed** in the final submission because the AWS account returned `ValidationException: Operation not allowed` during final testing. The working judge build uses the real Strands Agents SDK runtime with local/private InnerOS execution and independent verification.
+
 ## Verification
 
 Final pre-submission verification on 2026-09-14:
 
 ```text
-python -m pytest -q                         69 passed
+python -m pytest -q                              71 passed
 python -m compileall -q src scripts agentcore   PASS
-Judge Console login/logout                  PASS
-Judge Console /app/judge                    PASS
-Public-style /api/observe without cookie    FAIL-CLOSED
-Authenticated /api/observe Solar            PASS
-Authenticated /api/observe Wi-Fi            PASS
-Authenticated /api/observe Alarm            PASS
-Authenticated /api/observe PBX              PASS
-Judge Console /api/demo?scenario=happy      PASS
-Judge Console /api/demo?scenario=denied     PASS
-Strands runtime                             active=true
-Bounded tool                                execute_fieldops_demo -> success
-Independent verification                    PASS
-Evidence Receipt quality gate               PASS
+git diff --check                                PASS
+Judge Console login/logout                      PASS
+Judge Console /app/judge                        PASS
+Public unauthenticated observation              FAIL-CLOSED
+Authenticated Solar observation                 PASS
+Authenticated Wi-Fi observation                 PASS
+Authenticated Alarm observation                 PASS
+Authenticated PBX observation                   PASS
+Security denial path                            PASS
+Security approved path                          PASS
+Bounded execution                               PASS
+Independent verification                        PASS
+Evidence Receipt quality gate                   PASS
 ```
 
 ## Real-world evidence
@@ -177,21 +189,3 @@ InnerOS, Ralphi IA/MCP, local-model infrastructure, Resource Fabric, Home Assist
 Hackathon-specific work includes the FieldOps product/workflow layer, Strands-facing orchestration, bounded demo execution, judge console, evidence presentation, AWS configuration path, documentation, and competition-specific integration work.
 
 See [`docs/PREEXISTING_DISCLOSURE.md`](docs/PREEXISTING_DISCLOSURE.md).
-
-## Safety
-
-- No secrets are committed.
-- No arbitrary model shell or arbitrary public network execution is exposed.
-- Consequential actions fail closed without approval.
-- A command response is never accepted as proof of success without verification.
-- Solar access is read-only.
-- UniFi RF data is read-only in this snapshot.
-- Real and synthetic/captured evidence are explicitly labeled.
-
-## Submission snapshot lifecycle
-
-This repository is the reproducible **hackathon submission snapshot**. After final Devpost submission, the exact submitted SHA will be tagged and this repository will be frozen for feature development. Reusable FieldOps capabilities continue in the living InnerOS product line rather than mutating the competition snapshot.
-
-## License
-
-MIT.
