@@ -1,8 +1,8 @@
 """Factory for the real FieldOps operator runtime.
 
-Only adapters that are actually configured and bounded are registered. A policy
-may exist in the catalog while its executor remains unbound; execution then fails
-closed in :class:`GovernedActionRuntime`.
+Only adapters that are actually configured and bounded are registered. Mutation
+and observation capabilities share the same product bundle but keep different
+safety semantics: reads never require approval; mutations do.
 """
 
 from __future__ import annotations
@@ -20,13 +20,27 @@ from .ha_adapter import (
     HomeAssistantEntityVerifier,
     load_canonical_ha_client,
 )
+from .observations import GovernedObservationRuntime
+from .read_adapters import (
+    CameraEvidenceObserver,
+    CameraEvidenceVerifier,
+    EdgeReadClient,
+    NetworkScanObserver,
+    NetworkScanVerifier,
+    ReadAdapterConfigurationError,
+    RemoteReadOpsHTTPClient,
+    SolarStatusObserver,
+    SolarStatusVerifier,
+)
 from .runtime import GovernedActionRuntime
 
 
 @dataclass(frozen=True)
 class ProductRuntimeBundle:
     runtime: GovernedActionRuntime
+    observations: GovernedObservationRuntime
     bindings: tuple[str, ...]
+    observation_bindings: tuple[str, ...]
     errors: tuple[str, ...]
     ha_allowlist: tuple[str, ...]
 
@@ -35,6 +49,7 @@ class ProductRuntimeBundle:
             "route": self.runtime.route,
             "route_reason": self.runtime.route_reason,
             "bound_actions": list(self.bindings),
+            "bound_observations": list(self.observation_bindings),
             "binding_errors": list(self.errors),
             "ha_allowlisted_targets": list(self.ha_allowlist),
         }
@@ -45,16 +60,34 @@ def build_product_runtime(
     *,
     ha_client: HomeAssistantClient | None = None,
     dmx_client: DMXClient | None = None,
+    edge_client: EdgeReadClient | None = None,
 ) -> ProductRuntimeBundle:
     source = env or os.environ
     runtime = GovernedActionRuntime(route="inneros-local", route_reason="local_first_bounded_execution")
+    observations = GovernedObservationRuntime(
+        route="inneros-local",
+        route_reason="local_first_read_only_observation",
+    )
     errors: list[str] = []
     ha_allowlist: tuple[str, ...] = ()
 
-    # Home Assistant: credentials remain inside the canonical InnerOS module.
+    # Canonical HA client is reused for both safe solar observation and bounded
+    # light control. Solar reads do not depend on the mutation allowlist.
+    resolved_ha: HomeAssistantClient | None = None
+    try:
+        resolved_ha = ha_client or load_canonical_ha_client(source.get("FIELDOPS_INNEROS_PLATFORM_ROOT"))
+        observations.register(
+            "energy.read_status",
+            observer=SolarStatusObserver(resolved_ha),
+            verifier=SolarStatusVerifier(),
+        )
+    except HomeAssistantConfigurationError as exc:
+        errors.append(f"energy:{exc}")
+
     try:
         ha_config = HomeAssistantBindingConfig.from_env(source)
-        resolved_ha = ha_client or load_canonical_ha_client(source.get("FIELDOPS_INNEROS_PLATFORM_ROOT"))
+        if resolved_ha is None:
+            resolved_ha = ha_client or load_canonical_ha_client(source.get("FIELDOPS_INNEROS_PLATFORM_ROOT"))
         runtime.register(
             "homeassistant.entity_control",
             executor=HomeAssistantEntityExecutor(resolved_ha, ha_config),
@@ -63,6 +96,30 @@ def build_product_runtime(
         ha_allowlist = tuple(sorted(ha_config.allowed_lights))
     except HomeAssistantConfigurationError as exc:
         errors.append(f"homeassistant:{exc}")
+
+    # Physical Guardian + Wi-Fi read sidecar. It exposes only sanitized
+    # observation metadata from the AMD edge node; camera credentials stay there.
+    try:
+        resolved_edge = edge_client
+        if resolved_edge is None:
+            edge_url = str(source.get("FIELDOPS_READOPS_EDGE_URL") or "").strip()
+            if edge_url:
+                resolved_edge = RemoteReadOpsHTTPClient(edge_url)
+        if resolved_edge is not None:
+            observations.register(
+                "camera.capture_evidence",
+                observer=CameraEvidenceObserver(resolved_edge),
+                verifier=CameraEvidenceVerifier(),
+            )
+            observations.register(
+                "network.scan_wifi",
+                observer=NetworkScanObserver(resolved_edge),
+                verifier=NetworkScanVerifier(),
+            )
+        else:
+            errors.append("readops:FIELDOPS_READOPS_EDGE_URL is not configured")
+    except (ReadAdapterConfigurationError, ValueError) as exc:
+        errors.append(f"readops:{exc}")
 
     # DMX: only an explicit private/local backend endpoint is accepted.
     try:
@@ -81,7 +138,9 @@ def build_product_runtime(
 
     return ProductRuntimeBundle(
         runtime=runtime,
+        observations=observations,
         bindings=runtime.bound_actions(),
+        observation_bindings=observations.bound_observations(),
         errors=tuple(errors),
         ha_allowlist=ha_allowlist,
     )

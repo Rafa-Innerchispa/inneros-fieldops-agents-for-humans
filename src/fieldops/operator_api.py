@@ -8,6 +8,13 @@ from uuid import uuid4
 
 from .contracts import ActionRequest, ApprovalArtifact, ApprovalStatus
 from .governance import action_catalog_payload
+from .observations import (
+    ObservationAdapterNotBound,
+    ObservationRequest,
+    ObservationUnavailable,
+    UnknownObservationPolicy,
+    observation_catalog_payload,
+)
 from .product_runtime import ProductRuntimeBundle
 from .runtime import ActionAdapterNotBound
 from .workflow import ActionUnavailable, ApprovalDenied, ApprovalRequired, UnknownActionPolicy
@@ -47,6 +54,23 @@ def action_request_from_payload(payload: Mapping[str, Any]) -> ActionRequest:
     )
 
 
+def observation_request_from_payload(payload: Mapping[str, Any]) -> ObservationRequest:
+    observation_type = str(payload.get("observation_type") or "").strip()
+    target_ref = str(payload.get("target_ref") or "").strip()
+    if not observation_type:
+        raise OperatorRequestError("observation_type is required")
+    if not target_ref:
+        raise OperatorRequestError("target_ref is required")
+    correlation_id = str(payload.get("correlation_id") or f"fieldops-read-{uuid4().hex[:16]}")
+    parameters = dict(_mapping(payload.get("parameters"), "parameters"))
+    return ObservationRequest(
+        correlation_id=correlation_id,
+        observation_type=observation_type,
+        target_ref=target_ref,
+        parameters=parameters,
+    )
+
+
 def approval_from_payload(payload: Mapping[str, Any]) -> ApprovalArtifact:
     raw = _mapping(payload.get("approval"), "approval")
     status_text = str(raw.get("status") or "pending").strip().lower()
@@ -74,7 +98,20 @@ def catalog_response(bundle: ProductRuntimeBundle) -> dict[str, object]:
         row = dict(item)
         row["runtime_bound"] = item["action_type"] in bound
         rows.append(row)
-    return {"ok": True, "runtime": bundle.status_payload(), "actions": rows}
+
+    observation_rows = []
+    observation_bound = set(bundle.observation_bindings)
+    for item in observation_catalog_payload():
+        row = dict(item)
+        row["runtime_bound"] = item["observation_type"] in observation_bound
+        observation_rows.append(row)
+
+    return {
+        "ok": True,
+        "runtime": bundle.status_payload(),
+        "actions": rows,
+        "observations": observation_rows,
+    }
 
 
 def propose_response(bundle: ProductRuntimeBundle, payload: Mapping[str, Any]) -> dict[str, object]:
@@ -89,6 +126,30 @@ def propose_response(bundle: ProductRuntimeBundle, payload: Mapping[str, Any]) -
         }
     except (OperatorRequestError, UnknownActionPolicy) as exc:
         return {"ok": False, "error": exc.__class__.__name__, "message": str(exc)}
+
+
+def observe_response(bundle: ProductRuntimeBundle, payload: Mapping[str, Any]) -> dict[str, object]:
+    try:
+        request = observation_request_from_payload(payload)
+        receipt = bundle.observations.observe(request)
+        return {
+            "ok": receipt.quality_gate == "passed",
+            "status": "observed" if receipt.quality_gate == "passed" else "verification_failed",
+            "request": asdict(request),
+            "receipt": asdict(receipt),
+        }
+    except (
+        OperatorRequestError,
+        UnknownObservationPolicy,
+        ObservationUnavailable,
+        ObservationAdapterNotBound,
+    ) as exc:
+        return {
+            "ok": False,
+            "status": "blocked",
+            "error": exc.__class__.__name__,
+            "message": str(exc),
+        }
 
 
 def execute_response(bundle: ProductRuntimeBundle, payload: Mapping[str, Any]) -> dict[str, object]:
