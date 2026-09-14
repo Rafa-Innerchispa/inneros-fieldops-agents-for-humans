@@ -89,7 +89,7 @@ class LocalVoiceOpsRuntimeClient:
     base_url: str
     pbx_ami_host: str
     pbx_ami_port: int = 7777
-    timeout_seconds: float = 3.0
+    timeout_seconds: float = 12.0
     bearer_token: str = ""
 
     def __post_init__(self) -> None:
