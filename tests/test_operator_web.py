@@ -52,7 +52,7 @@ def test_operator_console_is_single_page_clickable_demo():
     html = _html()
     assert "Guided Judge Demo" in html
     assert "LIVE EVIDENCE · CLICK EACH STEP" in html
-    assert "Observe the real environment, then run one governed action." in html
+    assert "Observe the real environment, then run one safe governance simulation." in html
 
     expected_controls = [
         ('guide-1', 'camera.capture_evidence', 'camera.dahua.ch2'),
@@ -70,10 +70,16 @@ def test_operator_console_is_single_page_clickable_demo():
     assert "buttons[i].onclick=function(){runObservation(this);}" in html
     assert "modules{display:none!important}" in html
     assert "What happened" in html
-    assert "Deny Action" in html
-    assert "Approve & Execute" in html
-    assert "EXECUTED + VERIFIED" in html
+    assert "Deny Simulated Recovery" in html
+    assert "Approve Simulated Recovery" in html
+    assert "SIMULATED RECOVERY · VERIFIED" in html
     assert "DENIED — NOTHING EXECUTED" in html
+    assert "This sandbox is independent from the live evidence above." in html
+    assert "SAFE SANDBOX · SYNTHETIC" in html
+    assert 'id="governed-action" hidden' in html
+    assert "sandbox.service_recovery" in html
+    assert "sandbox camera service" not in html
+    assert "Camera service unavailable. Restore it safely and prove that it came back." not in html
     assert "TRANSIENT CAMERA PREVIEW" in html
     assert "/api/camera/preview" in html
     assert "/api/demo" in html
