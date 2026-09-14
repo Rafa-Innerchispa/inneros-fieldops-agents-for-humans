@@ -14,7 +14,7 @@ class FakeExecutor:
 
     def execute(self, request):
         self.calls += 1
-        success = request.action_type != "fail_execution"
+        success = not bool(request.parameters.get("simulate_execution_failure"))
         return ExecutionResult(
             correlation_id=request.correlation_id,
             executor="inneros-edge-01",
@@ -41,21 +41,22 @@ class FakeVerifier:
         )
 
 
-def risky_request():
+def risky_request(requires_approval=False):
     return ActionRequest(
         correlation_id="demo-001",
-        action_type="service_restart",
+        action_type="camera.service_restart",
         target_ref="synthetic-camera-gateway",
         expected_state={"healthy": True},
-        requires_approval=True,
+        # Intentionally caller-controlled; registry must override this.
+        requires_approval=requires_approval,
     )
 
 
-def test_missing_approval_fails_before_execution():
+def test_missing_approval_fails_before_execution_even_if_caller_marks_false():
     executor = FakeExecutor()
     try:
         run_action(
-            request=risky_request(),
+            request=risky_request(requires_approval=False),
             approval=ApprovalArtifact(status=ApprovalStatus.PENDING),
             executor=executor,
             verifier=FakeVerifier(),
@@ -92,6 +93,7 @@ def test_approved_action_is_executed_and_verified():
             status=ApprovalStatus.APPROVED,
             approval_id="approval-demo-001",
             approver_id="synthetic-human",
+            policy_version="fieldops-v1",
             evidence_ref="evidence://approval-demo-001",
         ),
         executor=executor,
@@ -106,11 +108,13 @@ def test_approved_action_is_executed_and_verified():
     assert receipt.executor == "inneros-edge-01"
     assert receipt.verifier == "synthetic-state-probe"
     assert receipt.quality_gate == "passed"
-    assert receipt.requested_action == "service_restart"
+    assert receipt.requested_action == "camera.service_restart"
     assert receipt.target_ref == "synthetic-camera-gateway"
+    assert receipt.governance_domain == "security"
+    assert receipt.requires_approval is True
+    assert receipt.risk_level == "medium"
     assert "evidence://approval-demo-001" in receipt.evidence_refs
     assert "evidence://execution/demo-001" in receipt.evidence_refs
-
 
 
 def test_failed_execution_still_gets_verified_and_fails_quality_gate():
@@ -118,10 +122,10 @@ def test_failed_execution_still_gets_verified_and_fails_quality_gate():
     verifier = FakeVerifier(passed=True)
     request = ActionRequest(
         correlation_id="demo-failed-execution",
-        action_type="fail_execution",
+        action_type="camera.service_restart",
         target_ref="synthetic-camera-gateway",
+        parameters={"simulate_execution_failure": True},
         expected_state={"healthy": True},
-        requires_approval=True,
     )
 
     receipt = run_action(
@@ -130,6 +134,7 @@ def test_failed_execution_still_gets_verified_and_fails_quality_gate():
             status=ApprovalStatus.APPROVED,
             approval_id="approval-demo-failed-execution",
             approver_id="synthetic-human",
+            policy_version="fieldops-v1",
             evidence_ref="evidence://approval-demo-failed-execution",
         ),
         executor=executor,
@@ -155,6 +160,7 @@ def test_failed_verification_fails_quality_gate_even_when_execution_succeeds():
             status=ApprovalStatus.APPROVED,
             approval_id="approval-demo-failed-verification",
             approver_id="synthetic-human",
+            policy_version="fieldops-v1",
             evidence_ref="evidence://approval-demo-failed-verification",
         ),
         executor=executor,
