@@ -33,6 +33,13 @@ from .read_adapters import (
     SolarStatusVerifier,
 )
 from .runtime import GovernedActionRuntime
+from .telephony_read_adapter import (
+    LocalVoiceOpsTelephonyReadClient,
+    TelephonyReadClient,
+    TelephonyReadConfigurationError,
+    TelephonyStatusObserver,
+    TelephonyStatusVerifier,
+)
 
 
 @dataclass(frozen=True)
@@ -61,6 +68,7 @@ def build_product_runtime(
     ha_client: HomeAssistantClient | None = None,
     dmx_client: DMXClient | None = None,
     edge_client: EdgeReadClient | None = None,
+    telephony_read_client: TelephonyReadClient | None = None,
 ) -> ProductRuntimeBundle:
     source = env or os.environ
     runtime = GovernedActionRuntime(route="inneros-local", route_reason="local_first_bounded_execution")
@@ -120,6 +128,32 @@ def build_product_runtime(
             errors.append("readops:FIELDOPS_READOPS_EDGE_URL is not configured")
     except (ReadAdapterConfigurationError, ValueError) as exc:
         errors.append(f"readops:{exc}")
+
+    # Telephony read path deliberately consumes VoiceOps as an external owner.
+    # It never registers SIP, originates calls, or reads PBX/SIP credentials.
+    try:
+        resolved_telephony = telephony_read_client
+        if resolved_telephony is None:
+            health_url = str(source.get("FIELDOPS_VOICEOPS_HEALTH_URL") or "").strip()
+            ami_host = str(source.get("FIELDOPS_TELEPHONY_AMI_HOST") or "").strip()
+            if health_url and ami_host:
+                resolved_telephony = LocalVoiceOpsTelephonyReadClient(
+                    voiceops_health_url=health_url,
+                    pbx_ami_host=ami_host,
+                    pbx_ami_port=int(str(source.get("FIELDOPS_TELEPHONY_AMI_PORT") or "7777")),
+                )
+        if resolved_telephony is not None:
+            observations.register(
+                "telephony.read_status",
+                observer=TelephonyStatusObserver(resolved_telephony),
+                verifier=TelephonyStatusVerifier(),
+            )
+        else:
+            errors.append(
+                "telephony:FIELDOPS_VOICEOPS_HEALTH_URL/FIELDOPS_TELEPHONY_AMI_HOST are not configured"
+            )
+    except (TelephonyReadConfigurationError, ValueError) as exc:
+        errors.append(f"telephony:{exc}")
 
     # DMX: only an explicit private/local backend endpoint is accepted.
     try:

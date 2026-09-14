@@ -129,6 +129,15 @@ _OBSERVATIONS = {
         verifier_id="ethernet-route-readback",
         truth_note="The dedicated Wi-Fi radio scans only; the verifier requires the production default route to remain on Ethernet before and after the scan.",
     ),
+    "telephony.read_status": ObservationPolicy(
+        observation_type="telephony.read_status",
+        domain="telephony",
+        description="Read VoiceOps and PBX control-plane health without registering SIP or originating a call.",
+        availability=ObservationAvailability.ENABLED_REAL,
+        observer_id="voiceops-telephony-health",
+        verifier_id="voiceops-pbx-independent-readback",
+        truth_note="VoiceOps remains the sole owner of SIP/RTP execution. FieldOps checks the existing VoiceOps health surface and independently verifies private PBX AMI reachability without reading telephony credentials.",
+    ),
 }
 
 
