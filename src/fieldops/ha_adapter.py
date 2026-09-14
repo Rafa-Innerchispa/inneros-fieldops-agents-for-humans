@@ -179,8 +179,8 @@ class HomeAssistantEntityVerifier:
         client: HomeAssistantClient,
         config: HomeAssistantBindingConfig,
         verifier_id: str = "homeassistant-state-readback",
-        attempts: int = 5,
-        delay_seconds: float = 0.25,
+        attempts: int = 10,
+        delay_seconds: float = 0.5,
         sleeper=time.sleep,
     ):
         self.client = client
