@@ -161,6 +161,21 @@ _ACTIONS = {
         safe_return_action="telephony.hangup_call",
         truth_note="SIP/AMI/CGI control planes are verified, but outbound route verification is still required before enabling calls.",
     ),
+    "telephony.request_owner_callback": ActionPolicy(
+        action_type="telephony.request_owner_callback",
+        domain="telephony",
+        description="Request one bounded callback to the server-configured owner endpoint through VoiceOps.",
+        risk=RiskLevel.MEDIUM,
+        requires_approval=True,
+        availability=ActionAvailability.ENABLED_REAL,
+        executor_id="voiceops-owner-callback",
+        verifier_id="voiceops-call-receipt-readback",
+        reversible=False,
+        truth_note=(
+            "FieldOps never chooses a phone number or registers SIP. VoiceOps selects only its allowlisted owner "
+            "endpoint; autonomous PSTN and arbitrary destinations remain disabled."
+        ),
+    ),
     "network.apply_bounded_recovery": ActionPolicy(
         action_type="network.apply_bounded_recovery",
         domain="network",

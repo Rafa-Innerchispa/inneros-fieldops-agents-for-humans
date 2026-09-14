@@ -36,11 +36,15 @@ from .read_adapters import (
 )
 from .runtime import GovernedActionRuntime
 from .telephony_read_adapter import (
+    LocalVoiceOpsRuntimeClient,
     LocalVoiceOpsTelephonyReadClient,
     TelephonyReadClient,
     TelephonyReadConfigurationError,
     TelephonyStatusObserver,
     TelephonyStatusVerifier,
+    VoiceOpsCallbackClient,
+    VoiceOpsOwnerCallbackExecutor,
+    VoiceOpsOwnerCallbackVerifier,
 )
 
 
@@ -71,6 +75,7 @@ def build_product_runtime(
     dmx_client: DMXClient | None = None,
     edge_client: EdgeReadClient | None = None,
     telephony_read_client: TelephonyReadClient | None = None,
+    telephony_callback_client: VoiceOpsCallbackClient | None = None,
 ) -> ProductRuntimeBundle:
     source = env or os.environ
     runtime = GovernedActionRuntime(route="inneros-local", route_reason="local_first_bounded_execution")
@@ -140,19 +145,34 @@ def build_product_runtime(
     except (ReadAdapterConfigurationError, ValueError) as exc:
         errors.append(f"readops:{exc}")
 
-    # Telephony read path deliberately consumes VoiceOps as an external owner.
-    # It never registers SIP, originates calls, or reads PBX/SIP credentials.
+    # VoiceOps owns SIP/RTP/PBX credentials. FieldOps consumes only the private
+    # runtime contract and may request one governed owner callback after normal
+    # approval. The legacy health path remains available for staged rollback.
     try:
         resolved_telephony = telephony_read_client
-        if resolved_telephony is None:
-            health_url = str(source.get("FIELDOPS_VOICEOPS_HEALTH_URL") or "").strip()
+        resolved_callback = telephony_callback_client
+        if resolved_telephony is None or resolved_callback is None:
+            runtime_url = str(source.get("FIELDOPS_VOICEOPS_RUNTIME_URL") or "").strip()
             ami_host = str(source.get("FIELDOPS_TELEPHONY_AMI_HOST") or "").strip()
-            if health_url and ami_host:
-                resolved_telephony = LocalVoiceOpsTelephonyReadClient(
-                    voiceops_health_url=health_url,
+            if runtime_url and ami_host:
+                voiceops_runtime = LocalVoiceOpsRuntimeClient(
+                    base_url=runtime_url,
                     pbx_ami_host=ami_host,
                     pbx_ami_port=int(str(source.get("FIELDOPS_TELEPHONY_AMI_PORT") or "7777")),
+                    bearer_token=str(source.get("FIELDOPS_VOICEOPS_RUNTIME_TOKEN") or "").strip(),
                 )
+                if resolved_telephony is None:
+                    resolved_telephony = voiceops_runtime
+                if resolved_callback is None:
+                    resolved_callback = voiceops_runtime
+            elif resolved_telephony is None:
+                health_url = str(source.get("FIELDOPS_VOICEOPS_HEALTH_URL") or "").strip()
+                if health_url and ami_host:
+                    resolved_telephony = LocalVoiceOpsTelephonyReadClient(
+                        voiceops_health_url=health_url,
+                        pbx_ami_host=ami_host,
+                        pbx_ami_port=int(str(source.get("FIELDOPS_TELEPHONY_AMI_PORT") or "7777")),
+                    )
         if resolved_telephony is not None:
             observations.register(
                 "telephony.read_status",
@@ -161,7 +181,13 @@ def build_product_runtime(
             )
         else:
             errors.append(
-                "telephony:FIELDOPS_VOICEOPS_HEALTH_URL/FIELDOPS_TELEPHONY_AMI_HOST are not configured"
+                "telephony:FIELDOPS_VOICEOPS_RUNTIME_URL or legacy health URL plus AMI host are not configured"
+            )
+        if resolved_callback is not None:
+            runtime.register(
+                "telephony.request_owner_callback",
+                executor=VoiceOpsOwnerCallbackExecutor(resolved_callback),
+                verifier=VoiceOpsOwnerCallbackVerifier(resolved_callback),
             )
     except (TelephonyReadConfigurationError, ValueError) as exc:
         errors.append(f"telephony:{exc}")
