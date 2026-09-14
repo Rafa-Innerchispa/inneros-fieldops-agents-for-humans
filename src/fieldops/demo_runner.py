@@ -38,11 +38,11 @@ def run_demo(
     if scenario not in SCENARIOS:
         raise ValueError(f"Unsupported scenario: {scenario}")
     provider_config = provider or load_provider_config()
-    device = SyntheticDevice()
+    device = SyntheticDevice(name="synthetic-field-service")
     expected_state = {"healthy": False} if scenario == "failed-verification" else {"healthy": True}
     request = ActionRequest(
         correlation_id=f"fieldops-demo-{scenario}",
-        action_type="camera.service_restart",
+        action_type="sandbox.service_recovery",
         target_ref=device.name,
         parameters={"simulate_execution_failure": scenario == "failed-execution"},
         expected_state=expected_state,

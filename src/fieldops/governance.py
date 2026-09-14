@@ -77,6 +77,17 @@ class ActionUnavailable(RuntimeError):
 # Mutations only. Read-only observations deliberately do not live here and do
 # not require approval.
 _ACTIONS = {
+    "sandbox.service_recovery": ActionPolicy(
+        action_type="sandbox.service_recovery",
+        domain="simulation",
+        description="Recover a synthetic sandbox service to demonstrate the governed action loop.",
+        risk=RiskLevel.LOW,
+        requires_approval=True,
+        availability=ActionAvailability.ENABLED_SYNTHETIC,
+        executor_id="synthetic-edge-executor",
+        verifier_id="synthetic-state-probe",
+        truth_note="Safe judge-only sandbox. It never mutates Camera, Solar, Wi-Fi, Alarm, PBX, or any production system.",
+    ),
     "camera.service_restart": ActionPolicy(
         action_type="camera.service_restart",
         domain="security",
