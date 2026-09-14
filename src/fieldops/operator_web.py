@@ -22,6 +22,7 @@ import secrets
 import time
 from typing import Any, Mapping
 from urllib.parse import parse_qs, urlparse
+from urllib.request import Request, urlopen
 
 from .architecture_asset import render_architecture_svg
 from . import demo_web
@@ -30,6 +31,7 @@ from .operator_api import catalog_response, execute_response, observe_response, 
 from .product_runtime import ProductRuntimeBundle, build_product_runtime
 
 MAX_BODY_BYTES = 64 * 1024
+MAX_CAMERA_PREVIEW_BYTES = 2 * 1024 * 1024
 SESSION_COOKIE = "fieldops_session"
 SESSION_TTL_SECONDS = 6 * 60 * 60
 
@@ -111,6 +113,18 @@ def _private_observation_allowed(handler: BaseHTTPRequestHandler) -> bool:
     client = str(handler.client_address[0] if handler.client_address else "")
     host = _request_host(handler)
     return _private_or_loopback(client) and _private_or_loopback(host)
+
+
+def _private_readops_url() -> str | None:
+    raw = str(os.environ.get("FIELDOPS_READOPS_EDGE_URL") or "").strip().rstrip("/")
+    if not raw:
+        return None
+    parsed = urlparse(raw)
+    if parsed.scheme != "http" or not parsed.hostname:
+        return None
+    if not _private_or_loopback(parsed.hostname):
+        return None
+    return raw
 
 
 def _local_request(handler: BaseHTTPRequestHandler) -> bool:
@@ -393,6 +407,7 @@ header{{display:grid;grid-template-columns:minmax(320px,1fr) minmax(420px,1.4fr)
 .flow{{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin-top:14px}}.step{{min-height:72px;border:1px solid var(--line);background:var(--panel2);border-radius:8px;padding:10px}}.step b{{display:block;font-size:13px}}.step small{{color:var(--muted);font-size:12px}}
 .modules{{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:14px}}.module{{padding:14px;display:flex;flex-direction:column;min-height:276px}}.module-head{{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}}.module-head span{{font-size:11px;color:var(--muted);text-transform:uppercase;font-weight:800}}.module-head b{{font-size:12px}}dl{{display:grid;grid-template-columns:58px 1fr;gap:6px;margin:12px 0;color:var(--muted);font-size:12px}}dt{{color:#c8d3de}}dd{{margin:0}}button,select,input{{border:1px solid var(--line);border-radius:6px;background:#0c1219;color:var(--text);font:inherit;padding:10px}}button{{cursor:pointer;background:#153c36;border-color:#22695d;font-weight:800;margin-top:auto}}button.secondary{{background:#141b24;border-color:var(--line)}}.mini-result{{margin-top:10px;min-height:48px;color:var(--muted);font-size:12px;border-top:1px solid var(--line);padding-top:9px}}
 .work{{display:grid;grid-template-columns:.95fr 1.05fr;gap:14px;margin-top:14px}}.panel{{padding:16px}}label{{display:block;color:var(--muted);font-size:12px;margin:10px 0 5px}}select,input{{width:100%}}pre{{white-space:pre-wrap;word-break:break-word;background:#05080c;border:1px solid var(--line);border-radius:8px;padding:12px;min-height:240px;max-height:440px;overflow:auto;color:#d7efe8}}table{{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px}}th,td{{text-align:left;padding:9px;border-bottom:1px solid var(--line);vertical-align:top}}td small{{display:block;color:var(--muted);margin-top:3px}}code{{color:#bfe9ff}}ul{{color:var(--muted)}}
+.modal{{position:fixed;inset:0;background:rgba(0,0,0,.72);display:grid;place-items:center;padding:18px;z-index:20}}.modal[hidden]{{display:none}}.modal-box{{width:min(920px,96vw);background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px}}.modal-head{{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}}.modal img{{width:100%;max-height:72vh;object-fit:contain;background:#05080c;border:1px solid var(--line);border-radius:6px}}.modal button{{margin-top:0;width:auto}}
 @media(max-width:1180px){{header,.work{{grid-template-columns:1fr}}.modules{{grid-template-columns:repeat(2,1fr)}}.status-grid{{grid-template-columns:repeat(2,1fr)}}.flow{{grid-template-columns:repeat(3,1fr)}}}}
 @media(max-width:700px){{.shell{{padding:12px}}.modules,.status-grid,.flow{{grid-template-columns:1fr}}h1{{font-size:24px}}}}
 </style></head><body><div class="shell">
@@ -401,14 +416,31 @@ header{{display:grid;grid-template-columns:minmax(320px,1fr) minmax(420px,1.4fr)
 <section class="panel"><div class="eyebrow">Unified lifecycle</div><div class="flow"><div class="step"><b>OBSERVE</b><small>telemetry/context</small></div><div class="step"><b>ANALYZE</b><small>policy + route</small></div><div class="step"><b>APPROVAL</b><small>only when needed</small></div><div class="step"><b>EXECUTE</b><small>bounded adapter</small></div><div class="step"><b>VERIFY</b><small>independent readback</small></div><div class="step"><b>EVIDENCE</b><small>receipt + trace</small></div></div></section>
 <section class="modules">{''.join(modules)}</section>
 <section class="work"><aside class="panel"><div class="eyebrow">Governed proposal</div><h2>Safe Home Assistant action</h2><p>This prepares a proposal for allowlisted lights only. Public sessions cannot execute it; execution remains loopback-gated.</p><label>Target</label><select id="ha-target">{ha_options or '<option>No HA targets bound</option>'}</select><label>Desired state</label><select id="ha-state"><option value="on">on</option><option value="off">off</option></select><button id="propose-ha" class="secondary">Prepare Proposal</button></aside>
-<section class="panel"><div class="eyebrow">Evidence receipt</div><h2>Latest result</h2><pre id="result">No operation yet. Use a module button to create a real observe -> verify -> evidence receipt.</pre></section></section>
-<section class="panel"><div class="eyebrow">Catalog</div><h2>Actions and observations</h2><table><thead><tr><th>Action</th><th>Purpose</th><th>Risk</th><th>Runtime</th><th>Approval</th></tr></thead><tbody>{_action_rows(bundle)}</tbody></table><table><thead><tr><th>Observation</th><th>Purpose</th><th>Runtime</th><th>Approval</th></tr></thead><tbody>{_observation_rows(bundle)}</tbody></table></section>
+<section class="panel"><div class="eyebrow">Decision evidence</div><h2>Latest judge-readable result</h2><pre id="result">No operation yet. Use a module button to create a real observe -> verify -> evidence receipt.</pre></section></section>
+<section class="panel"><div class="eyebrow">What this system can safely do</div><h2>Governed actions and read-only observations</h2><table><thead><tr><th>Action</th><th>Purpose</th><th>Risk</th><th>Runtime</th><th>Approval</th></tr></thead><tbody>{_action_rows(bundle)}</tbody></table><table><thead><tr><th>Observation</th><th>Purpose</th><th>Runtime</th><th>Approval</th></tr></thead><tbody>{_observation_rows(bundle)}</tbody></table></section>
 {_error_panel(status)}
+<div class="modal" id="camera-modal" hidden><div class="modal-box"><div class="modal-head"><div><div class="eyebrow">Transient camera preview</div><h2>Live captured frame</h2><p id="camera-preview-note">Image is served no-store and is not persisted in the evidence receipt.</p></div><button class="secondary" id="camera-modal-close" type="button">Close</button></div><img id="camera-preview-image" alt="Transient camera preview"></div></div>
 </div><script>
 const result=document.getElementById('result');
-function summarize(payload){{return JSON.stringify(payload,null,2)}}
-document.getElementById('propose-ha')?.addEventListener('click',async()=>{{const body={{action_type:'homeassistant.entity_control',target_ref:document.getElementById('ha-target').value,parameters:{{state:document.getElementById('ha-state').value}},expected_state:{{state:document.getElementById('ha-state').value}}}};const r=await fetch('{escape(_route(base_path, '/api/propose'))}',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(body)}});const data=await r.json();result.textContent=summarize(data);}});
-document.querySelectorAll('[data-read]').forEach(button=>button.addEventListener('click',async()=>{{const body={{observation_type:button.dataset.read,target_ref:button.dataset.target,correlation_id:'judge-'+Date.now()}};button.disabled=true;const card=button.closest('.module');const slot=card?.querySelector('.mini-result');if(slot)slot.textContent='Reading real adapter...';try{{const r=await fetch('{escape(_route(base_path, '/api/observe'))}',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(body)}});const data=await r.json();result.textContent=summarize(data);if(slot)slot.textContent=(data.ok?'PASS ':'BLOCKED ')+(data.receipt?.quality_gate||data.error||data.status||'see evidence');}}catch(e){{result.textContent=String(e);if(slot)slot.textContent='Request failed';}}finally{{button.disabled=false;}}}}));
+const cameraModal=document.getElementById('camera-modal');
+const cameraPreviewImage=document.getElementById('camera-preview-image');
+const cameraPreviewNote=document.getElementById('camera-preview-note');
+document.getElementById('camera-modal-close')?.addEventListener('click',()=>{{cameraModal.hidden=true;cameraPreviewImage.removeAttribute('src');}});
+function valueFrom(details,names,fallback){{for(const name of names){{if(details && details[name]!==undefined && details[name]!==null && details[name]!=='')return details[name];}}return fallback;}}
+function receiptDetails(payload){{return (payload && payload.receipt && payload.receipt.details) || (payload && payload.details) || {{}};}}
+function humanSummary(payload,button){{const receipt=(payload&&payload.receipt)||{{}};const details=receiptDetails(payload);const type=receipt.observation_type || (button&&button.dataset.read) || '';const ok=!!(payload&&payload.ok);const gate=receipt.quality_gate || payload?.status || (ok?'passed':'blocked');if(!ok)return 'Result: blocked or unavailable. '+(payload?.error || payload?.status || 'The adapter did not return a valid evidence receipt.')+'\\n\\nTechnical evidence\\n'+JSON.stringify(payload,null,2);
+let lines=[];
+if(type==='camera.capture_evidence'){{lines=['Camera evidence captured from the allowlisted channel.','Channel: '+valueFrom(details,['channel','camera_channel'],'2/3 allowlist'),'JPEG bytes: '+valueFrom(details,['bytes','byte_count','size_bytes'],'reported in receipt'),'SHA-256 evidence: '+valueFrom(details,['sha256','hash'],'available in receipt'),'Raw image preview is transient only; credentials and images are not persisted in the receipt.'];}}
+else if(type==='energy.read_status'){{lines=['Solar and inverter status read successfully.','Mode: '+valueFrom(details,['mode','inverter_mode','source'],'reported in receipt'),'Battery: '+valueFrom(details,['battery','battery_soc','battery_pct'],'reported in receipt'),'Grid: '+valueFrom(details,['grid','grid_status','utility'],'reported in receipt'),'Load/output: '+valueFrom(details,['load','output','output_load'],'reported in receipt'),'Freshness: '+valueFrom(details,['freshness','captured_at','updated_at'],'reported in receipt')];}}
+else if(type==='network.scan_wifi'){{lines=['Wi-Fi scan completed without changing network configuration.','Networks found: '+valueFrom(details,['network_count','count','wifi_count'],'reported in receipt'),'Interface: '+valueFrom(details,['interface','wifi_interface'],'reported in receipt'),'Ethernet route intact: '+valueFrom(details,['ethernet_route_intact','route_intact'],'reported in receipt')];}}
+else if(type==='alarm.read_status'){{lines=['Alarm panel state read successfully in read-only mode.','Panel state: '+valueFrom(details,['state','panel_state','alarm_state'],'reported in receipt'),'Zones: '+valueFrom(details,['zone_count','zones_count'],'reported in receipt'),'Open zones: '+valueFrom(details,['open_zones','open_zone_count'],'reported in receipt'),'No arm, disarm, siren or panic action was exposed from this judge screen.'];}}
+else if(type==='telephony.read_status'){{lines=['VoiceOps and PBX health were checked in read-only mode.','PBX/control plane: '+valueFrom(details,['pbx_status','ami_status','status'],'reported in receipt'),'Live voice truth: outbound call and cloned voice were owner-audible; bidirectional microphone/STT is not yet verified.','FieldOps does not register SIP or originate arbitrary calls; VoiceOps owns execution.'];}}
+else{{lines=['Evidence receipt captured.','Quality gate: '+gate];}}
+return lines.join('\\n')+'\\n\\nTechnical evidence\\n'+JSON.stringify(payload,null,2);}}
+function miniSummary(payload,button){{const receipt=(payload&&payload.receipt)||{{}};const type=receipt.observation_type || (button&&button.dataset.read) || '';if(!(payload&&payload.ok))return 'Unavailable: '+(payload?.error || payload?.status || 'see decision evidence');if(type==='camera.capture_evidence')return 'Camera captured: JPEG metadata + SHA evidence recorded; image remains transient.';if(type==='energy.read_status')return 'Solar read: inverter/battery/grid/load status recorded.';if(type==='network.scan_wifi')return 'Network read: RF scan recorded; Ethernet route remains protected.';if(type==='alarm.read_status')return 'Alarm read: panel and zones inspected read-only.';if(type==='telephony.read_status')return 'VoiceOps read: PBX health checked; outbound voice audible, bidirectional still pending.';return 'Evidence receipt captured: '+(receipt.quality_gate||'quality gate recorded');}}
+function maybeOpenCameraPreview(payload,button){{const receipt=(payload&&payload.receipt)||{{}};const details=receiptDetails(payload);const type=receipt.observation_type || (button&&button.dataset.read) || '';if(type!=='camera.capture_evidence'||!(payload&&payload.ok))return;const channel=valueFrom(details,['channel','camera_channel'],'2');cameraPreviewNote.textContent='Channel '+channel+' · '+valueFrom(details,['bytes','byte_count','size_bytes'],'JPEG')+' bytes · SHA '+valueFrom(details,['sha256','hash'],'recorded')+'. Served no-store; not persisted in the receipt.';cameraPreviewImage.src='{escape(_route(base_path, '/api/camera/preview'))}?channel='+encodeURIComponent(channel)+'&t='+Date.now();cameraModal.hidden=false;}}
+document.getElementById('propose-ha')?.addEventListener('click',async()=>{{const body={{action_type:'homeassistant.entity_control',target_ref:document.getElementById('ha-target').value,parameters:{{state:document.getElementById('ha-state').value}},expected_state:{{state:document.getElementById('ha-state').value}}}};const r=await fetch('{escape(_route(base_path, '/api/propose'))}',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(body)}});const data=await r.json();result.textContent='Governed proposal prepared. Review approval and execution policy before any physical action.\\n\\nTechnical evidence\\n'+JSON.stringify(data,null,2);}});
+document.querySelectorAll('[data-read]').forEach(button=>button.addEventListener('click',async()=>{{const body={{observation_type:button.dataset.read,target_ref:button.dataset.target,correlation_id:'judge-'+Date.now()}};button.disabled=true;const card=button.closest('.module');const slot=card?.querySelector('.mini-result');if(slot)slot.textContent='Reading real adapter...';try{{const r=await fetch('{escape(_route(base_path, '/api/observe'))}',{{method:'POST',headers:{{'Content-Type':'application/json'}},body:JSON.stringify(body)}});const data=await r.json();result.textContent=humanSummary(data,button);if(slot)slot.textContent=miniSummary(data,button);maybeOpenCameraPreview(data,button);}}catch(e){{result.textContent=String(e);if(slot)slot.textContent='Request failed';}}finally{{button.disabled=false;}}}}));
 </script></body></html>"""
 
 
@@ -502,6 +534,39 @@ class OperatorHandler(BaseHTTPRequestHandler):
                 return
             scenario = query.get("scenario", ["happy"])[0]
             self._json(200, demo_web.demo_payload(scenario))
+            return
+        if path == "/api/camera/preview":
+            if not _operator_authenticated(self):
+                self._json(401, {"ok": False, "error": "authentication_required"})
+                return
+            try:
+                channel = int((query.get("channel") or ["2"])[0])
+            except (TypeError, ValueError):
+                self._json(400, {"ok": False, "error": "invalid_channel"})
+                return
+            if channel not in {2, 3}:
+                self._json(403, {"ok": False, "error": "channel_not_allowlisted"})
+                return
+            edge_url = _private_readops_url()
+            if edge_url is None:
+                self._json(503, {"ok": False, "error": "readops_preview_not_configured"})
+                return
+            try:
+                req = Request(
+                    edge_url + f"/camera/preview?channel={channel}",
+                    headers={"User-Agent": "InnerOS-FieldOps-Operator/1"},
+                )
+                with urlopen(req, timeout=5.0) as response:
+                    body = response.read(MAX_CAMERA_PREVIEW_BYTES + 1)
+                    content_type = str(response.headers.get("Content-Type") or "")
+                if len(body) > MAX_CAMERA_PREVIEW_BYTES:
+                    raise RuntimeError("preview_too_large")
+                if "image/jpeg" not in content_type or not (body.startswith(b"\xff\xd8") and body.endswith(b"\xff\xd9")):
+                    raise RuntimeError("preview_not_valid_jpeg")
+            except Exception as exc:
+                self._json(502, {"ok": False, "error": type(exc).__name__, "message": str(exc)[:160]})
+                return
+            self._send_json_or_bytes(200, "image/jpeg", body)
             return
         if path == "/assets/fieldops-architecture.svg":
             asset_path = Path(__file__).resolve().parents[2] / "docs" / "assets" / "fieldops-architecture.svg"

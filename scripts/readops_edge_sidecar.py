@@ -180,6 +180,26 @@ def _camera_snapshot(base_url: str, channel: int) -> dict[str, object]:
     }
 
 
+def _camera_preview(base_url: str, channel: int) -> bytes:
+    if channel not in ALLOWED_CHANNELS:
+        raise ValueError("channel_not_allowlisted")
+    status = _guardian_json(base_url, "/api/camera/status")
+    guardian_ok = bool(status.get("ok")) and channel in set(status.get("channels") or [])
+    if not guardian_ok:
+        raise RuntimeError("guardian_channel_unavailable")
+    req = Request(
+        base_url.rstrip("/") + f"/api/camera/snapshot?channel={channel}",
+        headers={"User-Agent": "InnerOS-FieldOps-Edge/1"},
+    )
+    with urlopen(req, timeout=5.0) as response:
+        payload = response.read(MAX_SNAPSHOT_BYTES + 1)
+    if len(payload) > MAX_SNAPSHOT_BYTES:
+        raise RuntimeError("snapshot_too_large")
+    if not (payload.startswith(b"\xff\xd8") and payload.endswith(b"\xff\xd9") and len(payload) > 256):
+        raise RuntimeError("snapshot_not_valid_jpeg")
+    return payload
+
+
 class ReadOpsServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -209,6 +229,14 @@ class ReadOpsHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _image(self, status: int, payload: bytes) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
+
     def do_GET(self) -> None:  # noqa: N802
         if not self._authorized():
             self._json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "client_not_allowlisted"})
@@ -231,6 +259,12 @@ class ReadOpsHandler(BaseHTTPRequestHandler):
                 channel = int(raw)
                 payload = _camera_snapshot(self.server.guardian_url, channel)
                 self._json(HTTPStatus.OK if payload.get("ok") else HTTPStatus.BAD_GATEWAY, payload)
+                return
+            if parsed.path == "/camera/preview":
+                raw = (parse_qs(parsed.query).get("channel") or ["0"])[0]
+                channel = int(raw)
+                payload = _camera_preview(self.server.guardian_url, channel)
+                self._image(HTTPStatus.OK, payload)
                 return
             if parsed.path == "/network/scan":
                 payload = _scan_wifi(self.server.wifi_interface)

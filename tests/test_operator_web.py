@@ -50,6 +50,12 @@ def test_operator_console_is_primary_product_surface_not_judge_mode():
     assert "Alarm / Security Panel" in html
     assert "Telephony / PBX" in html
     assert "Open Judge Mode" in html
+    assert "Latest judge-readable result" in html
+    assert "What this system can safely do" in html
+    assert "VoiceOps read: PBX health checked; outbound voice audible, bidirectional still pending." in html
+    assert "Transient camera preview" in html
+    assert "/api/camera/preview" in html
+    assert "data.ok?'PASS '" not in html
 
 
 def test_operator_console_uses_prefixed_routes_for_inneros_judge_path():
@@ -61,6 +67,7 @@ def test_operator_console_uses_prefixed_routes_for_inneros_judge_path():
     assert 'action="/app/judge/api/login"' not in html
     assert 'fetch(\'/app/judge/api/observe\'' in html
     assert 'fetch(\'/app/judge/api/propose\'' in html
+    assert '/app/judge/api/camera/preview' in html
     assert 'href="/app/judge/judge?scenario=happy"' in html
     assert 'href="/app/judge/api/status"' in html
     assert 'href="/app/judge/logout"' in html
