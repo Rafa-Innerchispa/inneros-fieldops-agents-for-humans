@@ -35,26 +35,34 @@ class FakeHA:
         return {"ok": True}
 
 
-def test_operator_console_is_primary_product_surface_not_judge_mode():
+def test_operator_console_is_single_page_guided_demo():
     bundle = build_product_runtime(
         {"FIELDOPS_HA_LIGHT_ALLOWLIST": "light.cinta_escritorio"},
         ha_client=FakeHA(),
     )
     html = render_operator_page(bundle)
-    assert "Judge Console" in html
-    assert "Safe Home Assistant action" in html
-    assert "Home Assistant" in html
-    assert "READY" in html
+    assert "Guided Judge Demo" in html
+    assert "Follow steps 1 → 6" in html
+    assert "1 · Camera" in html
+    assert "2 · Solar" in html
+    assert "3 · Wi-Fi" in html
+    assert "4 · Alarm" in html
+    assert "5 · PBX" in html
+    assert "6 · Governed Action" in html
     assert "Security / Camera" in html
     assert "Solar / Energy" in html
     assert "Alarm / Security Panel" in html
     assert "Telephony / PBX" in html
-    assert "Open Judge Mode" in html
-    assert "Latest judge-readable result" in html
-    assert "What this system can safely do" in html
-    assert "VoiceOps read: PBX health checked; outbound voice audible, bidirectional still pending." in html
+    assert "What happened" in html
+    assert "Deny Action" in html
+    assert "Approve & Execute" in html
+    assert "EXECUTED + VERIFIED" in html
+    assert "DENIED — NOTHING EXECUTED" in html
     assert "Transient camera preview" in html
     assert "/api/camera/preview" in html
+    assert "/api/demo" in html
+    assert "Safe Home Assistant action" not in html
+    assert "Open Judge Mode" not in html
     assert "data.ok?'PASS '" not in html
 
 
@@ -65,12 +73,12 @@ def test_operator_console_uses_prefixed_routes_for_inneros_judge_path():
     )
     html = render_operator_page(bundle, base_path="/app/judge")
     assert 'action="/app/judge/api/login"' not in html
-    assert 'fetch(\'/app/judge/api/observe\'' in html
-    assert 'fetch(\'/app/judge/api/propose\'' in html
-    assert '/app/judge/api/camera/preview' in html
-    assert 'href="/app/judge/judge?scenario=happy"' in html
+    assert "const observeUrl='/app/judge/api/observe'" in html
+    assert "const demoUrl='/app/judge/api/demo'" in html
+    assert "const cameraPreviewUrl='/app/judge/api/camera/preview'" in html
     assert 'href="/app/judge/api/status"' in html
     assert 'href="/app/judge/logout"' in html
+    assert 'href="/app/judge/judge?scenario=happy"' not in html
 
 
 def test_login_page_uses_prefixed_action_for_inneros_judge_path():
