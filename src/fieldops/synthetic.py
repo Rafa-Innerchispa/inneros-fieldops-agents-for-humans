@@ -35,7 +35,15 @@ class SyntheticEdgeExecutor:
                 details={"reason": "unknown_target", "target_ref": request.target_ref},
             )
 
-        if request.action_type == "service_restart":
+        if request.parameters.get("simulate_execution_failure"):
+            return ExecutionResult(
+                correlation_id=request.correlation_id,
+                executor=self.executor_id,
+                success=False,
+                details={"reason": "simulated_execution_failure", "action": request.action_type},
+            )
+
+        if request.action_type == "camera.service_restart":
             self.device.state["healthy"] = True
             return ExecutionResult(
                 correlation_id=request.correlation_id,

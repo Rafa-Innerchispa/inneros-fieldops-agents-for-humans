@@ -1,7 +1,7 @@
 """Provider-neutral contracts for the reusable InnerOS FieldOps layer.
 
 These contracts intentionally contain no AWS credentials, customer data, or direct
-production integrations. Concrete adapters should live behind these interfaces.
+production integrations. Concrete adapters live behind these interfaces.
 """
 
 from __future__ import annotations
@@ -35,6 +35,8 @@ class ActionRequest:
     parameters: Mapping[str, Any] = field(default_factory=dict)
     expected_state: Mapping[str, Any] = field(default_factory=dict)
     policy_version: str = "fieldops-v1"
+    # Kept for wire/backward compatibility. The central governance registry is
+    # authoritative and overwrites this value before any executor can run.
     requires_approval: bool = False
 
 
@@ -71,6 +73,11 @@ class EvidenceReceipt:
     evidence_refs: tuple[str, ...] = ()
     execution_details: Mapping[str, Any] = field(default_factory=dict)
     observed_state: Mapping[str, Any] = field(default_factory=dict)
+    governance_domain: str = ""
+    risk_level: str = ""
+    action_availability: str = ""
+    requires_approval: bool = False
+    safe_return_action: str | None = None
 
 
 class Executor(Protocol):

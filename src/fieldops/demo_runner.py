@@ -39,14 +39,15 @@ def run_demo(
         raise ValueError(f"Unsupported scenario: {scenario}")
     provider_config = provider or load_provider_config()
     device = SyntheticDevice()
-    action_type = "unsupported_action" if scenario == "failed-execution" else "service_restart"
     expected_state = {"healthy": False} if scenario == "failed-verification" else {"healthy": True}
     request = ActionRequest(
         correlation_id=f"fieldops-demo-{scenario}",
-        action_type=action_type,
+        action_type="camera.service_restart",
         target_ref=device.name,
+        parameters={"simulate_execution_failure": scenario == "failed-execution"},
         expected_state=expected_state,
-        requires_approval=True,
+        # Deliberately false: the central registry must still force approval.
+        requires_approval=False,
     )
     approval = approval_for_scenario(scenario)
 
