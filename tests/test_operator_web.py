@@ -1,7 +1,10 @@
 import time
 
+import pytest
+
 from src.fieldops.operator_web import (
     _auth_config,
+    _camera_preview_from_edge,
     _loopback,
     _operator_authenticated,
     _sign_session,
@@ -59,8 +62,8 @@ def test_operator_console_uses_prefixed_routes_for_inneros_judge_path():
     )
     html = render_operator_page(bundle, base_path="/app/judge")
     assert 'action="/app/judge/api/login"' not in html
-    assert 'fetch(\'/app/judge/api/observe\'' in html
-    assert 'fetch(\'/app/judge/api/propose\'' in html
+    assert "fetch('/app/judge/api/observe'" in html
+    assert "fetch('/app/judge/api/propose'" in html
     assert 'href="/app/judge/judge?scenario=happy"' in html
     assert 'href="/app/judge/api/status"' in html
     assert 'href="/app/judge/logout"' in html
@@ -101,3 +104,26 @@ def test_public_operator_request_fails_closed_without_session(monkeypatch):
     monkeypatch.setenv("FIELDOPS_JUDGE_PASSWORD", "secret")
     monkeypatch.setenv("FIELDOPS_JUDGE_SESSION_SECRET", "server-side-session-secret")
     assert _operator_authenticated(DummyHandler()) is False
+
+
+def test_judge_console_prioritizes_human_result_and_transient_camera_preview():
+    bundle = build_product_runtime(
+        {"FIELDOPS_HA_LIGHT_ALLOWLIST": "light.cinta_escritorio"},
+        ha_client=FakeHA(),
+    )
+    html = render_operator_page(bundle, base_path="/app/judge")
+    assert "What happened, in plain English" in html
+    assert "Technical Evidence Receipt" in html
+    assert "camera-modal" in html
+    assert "/app/judge/api/camera/preview" in html
+    assert "What the agent can observe and safely do" in html
+    assert "PASS passed" not in html
+
+
+def test_camera_preview_fails_closed_for_public_or_unallowlisted_edge(monkeypatch):
+    monkeypatch.setenv("FIELDOPS_READOPS_EDGE_URL", "http://8.8.8.8:18787")
+    with pytest.raises(ValueError):
+        _camera_preview_from_edge(2)
+    monkeypatch.setenv("FIELDOPS_READOPS_EDGE_URL", "http://127.0.0.1:18787")
+    with pytest.raises(ValueError):
+        _camera_preview_from_edge(99)

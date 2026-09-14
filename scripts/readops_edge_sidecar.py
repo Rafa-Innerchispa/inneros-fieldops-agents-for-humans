@@ -2,8 +2,9 @@
 """Read-only edge sidecar for FieldOps.
 
 Runs on the AMD edge node beside Physical Guardian and the dedicated Wi-Fi radio.
-It exposes only sanitized observation metadata to the explicitly allowlisted
-FieldOps primary node. It has no mutation endpoints.
+It exposes sanitized observations plus an ephemeral JPEG preview to the explicitly
+allowlisted FieldOps primary node. It has no mutation endpoints and never stores
+camera images.
 """
 
 from __future__ import annotations
@@ -142,21 +143,14 @@ def _guardian_json(base_url: str, path: str) -> dict[str, Any]:
     return payload
 
 
-def _camera_snapshot(base_url: str, channel: int) -> dict[str, object]:
+def _camera_jpeg(base_url: str, channel: int) -> tuple[bytes, str]:
+    """Fetch an existing Physical Guardian snapshot without changing Guardian."""
     if channel not in ALLOWED_CHANNELS:
         raise ValueError("channel_not_allowlisted")
     status = _guardian_json(base_url, "/api/camera/status")
     guardian_ok = bool(status.get("ok")) and channel in set(status.get("channels") or [])
     if not guardian_ok:
-        return {
-            "ok": False,
-            "guardian_ok": False,
-            "channel": channel,
-            "jpeg_valid": False,
-            "bytes": 0,
-            "sha256": None,
-            "captured_at": utc_now(),
-        }
+        raise RuntimeError("guardian_camera_unavailable")
     req = Request(
         base_url.rstrip("/") + f"/api/camera/snapshot?channel={channel}",
         headers={"User-Agent": "InnerOS-FieldOps-Edge/1"},
@@ -166,15 +160,35 @@ def _camera_snapshot(base_url: str, channel: int) -> dict[str, object]:
     if len(payload) > MAX_SNAPSHOT_BYTES:
         raise RuntimeError("snapshot_too_large")
     jpeg_valid = payload.startswith(b"\xff\xd8") and payload.endswith(b"\xff\xd9")
-    digest = hashlib.sha256(payload).hexdigest() if jpeg_valid else None
+    if not jpeg_valid or len(payload) <= 256:
+        raise RuntimeError("snapshot_invalid_jpeg")
+    return payload, utc_now()
+
+
+def _camera_snapshot(base_url: str, channel: int) -> dict[str, object]:
+    try:
+        payload, captured_at = _camera_jpeg(base_url, channel)
+    except RuntimeError as exc:
+        if str(exc) != "guardian_camera_unavailable":
+            raise
+        return {
+            "ok": False,
+            "guardian_ok": False,
+            "channel": channel,
+            "jpeg_valid": False,
+            "bytes": 0,
+            "sha256": None,
+            "captured_at": utc_now(),
+        }
+    digest = hashlib.sha256(payload).hexdigest()
     return {
-        "ok": bool(guardian_ok and jpeg_valid and len(payload) > 256),
-        "guardian_ok": guardian_ok,
+        "ok": True,
+        "guardian_ok": True,
         "channel": channel,
-        "jpeg_valid": jpeg_valid,
+        "jpeg_valid": True,
         "bytes": len(payload),
         "sha256": digest,
-        "captured_at": utc_now(),
+        "captured_at": captured_at,
         "image_returned": False,
         "credentials_exposed": False,
     }
@@ -209,6 +223,18 @@ class ReadOpsHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _jpeg(self, payload: bytes, *, channel: int, captured_at: str) -> None:
+        digest = hashlib.sha256(payload).hexdigest()
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "image/jpeg")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(payload)))
+        self.send_header("X-FieldOps-Camera-Channel", str(channel))
+        self.send_header("X-FieldOps-Captured-At", captured_at)
+        self.send_header("X-FieldOps-SHA256", digest)
+        self.end_headers()
+        self.wfile.write(payload)
+
     def do_GET(self) -> None:  # noqa: N802
         if not self._authorized():
             self._json(HTTPStatus.FORBIDDEN, {"ok": False, "error": "client_not_allowlisted"})
@@ -231,6 +257,12 @@ class ReadOpsHandler(BaseHTTPRequestHandler):
                 channel = int(raw)
                 payload = _camera_snapshot(self.server.guardian_url, channel)
                 self._json(HTTPStatus.OK if payload.get("ok") else HTTPStatus.BAD_GATEWAY, payload)
+                return
+            if parsed.path == "/camera/preview":
+                raw = (parse_qs(parsed.query).get("channel") or ["0"])[0]
+                channel = int(raw)
+                payload, captured_at = _camera_jpeg(self.server.guardian_url, channel)
+                self._jpeg(payload, channel=channel, captured_at=captured_at)
                 return
             if parsed.path == "/network/scan":
                 payload = _scan_wifi(self.server.wifi_interface)
