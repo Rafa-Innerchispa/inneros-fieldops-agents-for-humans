@@ -178,3 +178,78 @@ def execute_response(bundle: ProductRuntimeBundle, payload: Mapping[str, Any]) -
             "error": exc.__class__.__name__,
             "message": str(exc),
         }
+
+
+def voiceops_propose_response(
+    bundle: ProductRuntimeBundle,
+    payload: Mapping[str, Any],
+) -> dict[str, object]:
+    """Return the central FieldOps proposal for a loopback VoiceOps request.
+
+    The proposal remains authoritative. VoiceOps cannot weaken approval policy or
+    turn a blocked/unbound action into an executable one.
+    """
+
+    result = propose_response(bundle, payload)
+    result["bridge"] = "voiceops-loopback"
+    return result
+
+
+def voiceops_execute_response(
+    bundle: ProductRuntimeBundle,
+    payload: Mapping[str, Any],
+) -> dict[str, object]:
+    """Map a sealed verbal-approval artifact into normal FieldOps execution.
+
+    This is intentionally only an input adapter. Execution still travels through
+    ``GovernedActionRuntime`` -> central policy -> executor -> independent verifier.
+    """
+
+    try:
+        request_payload = dict(_mapping(payload.get("request"), "request"))
+        voice_approval = _mapping(payload.get("voice_approval"), "voice_approval")
+        approval_id = str(voice_approval.get("approval_id") or "").strip()
+        evidence_ref = str(voice_approval.get("evidence_ref") or "").strip()
+        if not approval_id:
+            raise OperatorRequestError("voice_approval.approval_id is required")
+        if not evidence_ref.startswith("evidence://voiceops/approval/"):
+            raise OperatorRequestError("voice_approval.evidence_ref is invalid")
+        correlation_id = str(request_payload.get("correlation_id") or "").strip()
+        if not correlation_id:
+            raise OperatorRequestError("request.correlation_id is required")
+
+        combined = dict(request_payload)
+        combined["approval"] = {
+            "status": "approved",
+            "approval_id": approval_id,
+            # VoiceOps supplies proof of the human voice decision. It does not get
+            # to pick an arbitrary approver identity or policy version.
+            "approver_id": "owner-voice",
+            "policy_version": str(request_payload.get("policy_version") or "fieldops-v1"),
+            "evidence_ref": evidence_ref,
+        }
+        result = execute_response(bundle, combined)
+        result["bridge"] = "voiceops-loopback"
+        receipt = result.get("receipt") if isinstance(result.get("receipt"), Mapping) else {}
+        if bool(result.get("ok")) and str(receipt.get("quality_gate") or "") == "passed":
+            action = str(receipt.get("requested_action") or "la acción")
+            target = str(receipt.get("target_ref") or "el objetivo")
+            result["spoken_summary"] = (
+                f"Listo. {action} sobre {target} fue ejecutada y verificada."
+            )[:600]
+        else:
+            reason = str(result.get("message") or result.get("error") or "no superó la verificación")
+            result["spoken_summary"] = (
+                "No marqué la acción como completada. FieldOps la bloqueó o no pudo verificarla: "
+                + " ".join(reason.split())[:360]
+            )
+        return result
+    except OperatorRequestError as exc:
+        return {
+            "ok": False,
+            "status": "blocked",
+            "bridge": "voiceops-loopback",
+            "error": exc.__class__.__name__,
+            "message": str(exc),
+            "spoken_summary": "No ejecuté la acción porque la autorización de voz no era válida.",
+        }

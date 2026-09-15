@@ -26,7 +26,14 @@ from urllib.request import Request, urlopen
 from .architecture_asset import render_architecture_svg
 from . import demo_web
 from .inneros_adapter import read_inneros_context_snapshot
-from .operator_api import catalog_response, execute_response, observe_response, propose_response
+from .operator_api import (
+    catalog_response,
+    execute_response,
+    observe_response,
+    propose_response,
+    voiceops_execute_response,
+    voiceops_propose_response,
+)
 from .product_runtime import ProductRuntimeBundle, build_product_runtime
 
 MAX_BODY_BYTES = 64 * 1024
@@ -432,6 +439,12 @@ class OperatorHandler(BaseHTTPRequestHandler):
             self._send_json_or_bytes(401,"text/html; charset=utf-8",_login_page("Invalid FieldOps credential.",base_path=base_path).encode());return
         try:payload=_json_body(self)
         except ValueError as exc:self._json(400,{"ok":False,"error":"invalid_request","message":str(exc)});return
+        if path=="/api/voiceops/propose":
+            if not _direct_local_execution_allowed(self):self._json(403,{"ok":False,"status":"blocked","error":"voiceops_bridge_not_local","message":"VoiceOps action bridge is restricted to the enabled direct loopback path."});return
+            result=voiceops_propose_response(self.runtime_bundle,payload);self._json(200 if result.get("ok")else 400,result);return
+        if path=="/api/voiceops/execute":
+            if not _direct_local_execution_allowed(self):self._json(403,{"ok":False,"status":"blocked","error":"voiceops_bridge_not_local","message":"VoiceOps action bridge is restricted to the enabled direct loopback path."});return
+            result=voiceops_execute_response(self.runtime_bundle,payload);self._json(200 if result.get("ok")else 409,result);return
         if path=="/api/propose":
             if not _operator_authenticated(self):self._json(401,{"ok":False,"error":"authentication_required"});return
             result=propose_response(self.runtime_bundle,payload);self._json(200 if result.get("ok")else 400,result);return
