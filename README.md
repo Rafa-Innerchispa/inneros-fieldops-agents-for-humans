@@ -1,5 +1,16 @@
 # InnerOS FieldOps
 
+<!-- INNEROS-NARRATIVE:START -->
+> **InnerOS role:** R&D / Hackathon Validation  
+> **Lifecycle:** Submission snapshot  
+> **Lineage:** AWS Agents for Humans validation of governed physical-world workflows and evidence receipts.
+>
+> FieldOps explores how InnerOS closes the loop from operational objective to bounded action, human approval, independent verification, and auditable evidence.
+>
+> **InnerOS principle:** hackathons are validation environments. Reusable capabilities are extracted into maintained products and platform layers rather than treated as disconnected one-off projects.
+<!-- INNEROS-NARRATIVE:END -->
+
+
 **Cloud intelligence. Sovereign execution. Verified outcomes.**
 
 InnerOS FieldOps is an AI operations agent for the physical world, built for the AWS **Agents for Humans** hackathon. It turns an operational objective into a governed workflow that can request human approval, execute a bounded action, independently verify the result, and return an auditable Evidence Receipt.
